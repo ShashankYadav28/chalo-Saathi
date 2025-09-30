@@ -11,7 +11,7 @@ import SwiftUI
 struct ChaloSaathiApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SplashScreen()
         }
     }
 }
