@@ -9,9 +9,16 @@ import SwiftUI
 
 @main
 struct ChaloSaathiApp: App {
+    @State private var isactive = true
     var body: some Scene {
         WindowGroup {
-            SplashScreen()
+            
+            if isactive {
+                SplashScreen(splashShow:$isactive)
+            }
+            else {
+                rideSearchView()
+            }
         }
     }
 }
