@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+
 @main
 struct ChaloSaathiApp: App {
     @State private var isactive = true
@@ -17,7 +18,7 @@ struct ChaloSaathiApp: App {
                 SplashScreen(splashShow:$isactive)
             }
             else {
-                rideSearchView()
+                OnboardingView()
             }
         }
     }
