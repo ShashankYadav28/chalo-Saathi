@@ -1,18 +1,18 @@
 //
-//  rideSearchView.swift
+//  OnboardingView.swift
 //  ChaloSaathi
 //
-//  Created by Shashank Yadav on 01/10/25.
+//  Created by Shashank Yadav on 02/10/25.
 //
 
 import SwiftUI
 
-struct rideSearchView: View {
+struct OnboardingView: View {
     var body: some View {
         Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
     }
 }
 
 #Preview {
-    rideSearchView()
+    OnboardingView()
 }
