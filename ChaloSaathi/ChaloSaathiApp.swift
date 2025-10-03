@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
-
+import FirebaseCore
 
 @main
 struct ChaloSaathiApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+
     @State private var isactive = true
     var body: some Scene {
         WindowGroup {
@@ -21,5 +23,13 @@ struct ChaloSaathiApp: App {
                 OnboardingView()
             }
         }
+    }
+}
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        FirebaseApp.configure()
+        return true
     }
 }
