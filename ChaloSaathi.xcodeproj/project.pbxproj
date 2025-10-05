@@ -11,6 +11,7 @@
 		DD4DE64C2E8E7CCA0042F005 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DD4DE64B2E8E7CCA0042F005 /* FirebaseAuth */; };
 		DD4DE64E2E8E7CD60042F005 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DD4DE64D2E8E7CD60042F005 /* FirebaseCore */; };
 		DD4DE6502E8E7CE60042F005 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = DD4DE64F2E8E7CE60042F005 /* FirebaseStorage */; };
+		DDEC1A472E9025F1005335F2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = DDEC1A462E9025F1005335F2 /* FirebaseFirestore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,9 +37,22 @@
 		DD4DE5B22E8BEBEE0042F005 /* ChaloSaathiUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChaloSaathiUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DDEC1A662E90DE2B005335F2 /* Exceptions for "ChaloSaathi" folder in "ChaloSaathi" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DD4DE59A2E8BEBEC0042F005 /* ChaloSaathi */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DD4DE59D2E8BEBEC0042F005 /* ChaloSaathi */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DDEC1A662E90DE2B005335F2 /* Exceptions for "ChaloSaathi" folder in "ChaloSaathi" target */,
+			);
 			path = ChaloSaathi;
 			sourceTree = "<group>";
 		};
@@ -62,6 +76,7 @@
 				DD4DE64A2E8E7CC30042F005 /* FirebaseMessaging in Frameworks */,
 				DD4DE6502E8E7CE60042F005 /* FirebaseStorage in Frameworks */,
 				DD4DE64E2E8E7CD60042F005 /* FirebaseCore in Frameworks */,
+				DDEC1A472E9025F1005335F2 /* FirebaseFirestore in Frameworks */,
 				DD4DE64C2E8E7CCA0042F005 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -127,6 +142,7 @@
 				DD4DE64B2E8E7CCA0042F005 /* FirebaseAuth */,
 				DD4DE64D2E8E7CD60042F005 /* FirebaseCore */,
 				DD4DE64F2E8E7CE60042F005 /* FirebaseStorage */,
+				DDEC1A462E9025F1005335F2 /* FirebaseFirestore */,
 			);
 			productName = ChaloSaathi;
 			productReference = DD4DE59B2E8BEBEC0042F005 /* ChaloSaathi.app */;
@@ -418,6 +434,8 @@
 				DEVELOPMENT_TEAM = W474LURM85;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ChaloSaathi/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs your location to find nearby commuters.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -446,6 +464,8 @@
 				DEVELOPMENT_TEAM = W474LURM85;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ChaloSaathi/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app needs your location to find nearby commuters.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -608,6 +628,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DD4DE6472E8E7C010042F005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		DDEC1A462E9025F1005335F2 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DD4DE6472E8E7C010042F005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -12,6 +12,9 @@ struct OnboardingView: View {
     @State private var currentPage = 0
    // @State private var showLocationAlert = false
     @StateObject private var showLocationManager = LocationManger()
+    @State private var goToSignIn = false
+    
+
     
     let slides  = [("Connect with nearby office goers","Share your ride and save on your daily commute."),
                    ("Share rides, save petrol, save money","Find a travel partner for a sustainable and affordable journey.")]
@@ -22,68 +25,87 @@ struct OnboardingView: View {
     
     var body: some View {
        
+        NavigationStack() {
         
-        VStack {
-            TabView(selection: $currentPage) {
-                ForEach(0..<slidesImage.count, id : \.self){ index in
-                       // it stacks the content from the bottom to the front
-                    ZStack(alignment: .bottom) {
-                        Image(slidesImage[index])
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth:.infinity , maxHeight: 500)
+            VStack {
+                TabView(selection: $currentPage) {
+                    ForEach(0..<slidesImage.count, id : \.self){ index in
+                        // it stacks the content from the bottom to the front
+                        ZStack(alignment: .bottom) {
+                            Image(slidesImage[index])
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth:.infinity , maxHeight: 500)
                             //.clipped()
                             //.ignoresSafeArea(edges:.top)
-                        
-                        HStack {
-                            ForEach(0..<slidesImage.count, id:\.self) { dotIndex in
-                                Circle()
-                                    .fill(dotIndex == currentPage ? Color.blue : Color.gray.opacity(0.5))
-                                
-                                    .frame( width: dotIndex == currentPage ? 10 : 8 , height: dotIndex == currentPage ? 10 : 8)
-                                    .scaleEffect(dotIndex == currentPage ? 1.2 : 1)
-                                    .animation(.easeInOut, value:currentPage)
-                                
-                                
+                            
+                            HStack {
+                                ForEach(0..<slidesImage.count, id:\.self) { dotIndex in
+                                    Circle()
+                                        .fill(dotIndex == currentPage ? Color.blue : Color.gray.opacity(0.5))
+                                    
+                                        .frame( width: dotIndex == currentPage ? 10 : 8 , height: dotIndex == currentPage ? 10 : 8)
+                                        .scaleEffect(dotIndex == currentPage ? 1.2 : 1)
+                                        .animation(.easeInOut, value:currentPage)
+                                    
+                                    
+                                }
                             }
+                            .padding(.bottom,20)
                         }
-                        .padding(.bottom,20)
-                    }
-                    .tag(index)
-                    
-                       
+                        .tag(index)
                         
-                   
-                    
+                        
+                        
+                        
+                        
+                        
+                    }
                     
                 }
-               
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height:500)
+                
+                Spacer()
+                
+                Textlayout(headingText: slides[currentPage].0, subheadingText: slides[currentPage].1)
+                
+                Spacer()
+                
+                Button {
+                    showLocationManager.showLocationAlert = false
+                    if showLocationManager.canProceed {
+                        goToSignIn = true
+                    }
+                    else{
+                        showLocationManager.requestPermission()
+                    }
+                    
+                } label: {
+                    Text("Get started")
+                        .foregroundColor(.white)
+                        .font(.headline)
+                        .frame(height: 50)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.blue)
+                        .cornerRadius(8)
+                        .padding(.horizontal,30)
+                }
+                .padding(.bottom,25)
+                .alert(isPresented: $showLocationManager.showLocationAlert) {
+                    Alert(title: Text("Location Required"),message: Text(showLocationManager.alertMessage),dismissButton:.default(Text("ok")))
+                }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height:500)
-            
-            Spacer()
-            
-            Textlayout(headingText: slides[currentPage].0, subheadingText: slides[currentPage].1)
-            
-            Spacer()
-            
-            Button {
-                showLocationManager.showLocationAlert = true
-            } label: {
-                Text("Get started")
-                    .foregroundColor(.white)
-                    .font(.headline)
-                    .frame(height: 50)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue)
-                    .cornerRadius(8)
-                    .padding(.horizontal,30)
+            .onChange(of: showLocationManager.canProceed,initial:false){ oldValue,newValue in
+                if newValue {
+                    goToSignIn = true
+                }
+                
             }
-            .padding(.bottom,25)
-            .alert(isPresented: $showLocationManager.showLocationAlert) {
-                Alert(title: Text("Location Required"),message: Text("Please enable your Location from the Setting"),dismissButton:.default(Text("ok")))
+            .navigationDestination(isPresented: $goToSignIn) {
+                SignIn()
             }
+            
             
         }
     }
@@ -93,6 +115,8 @@ struct OnboardingView: View {
 #Preview {
     OnboardingView()
 }
+
+
 
 
 

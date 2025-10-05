@@ -14,6 +14,7 @@ class LocationManger:NSObject , ObservableObject {
     
     @Published  var showLocationAlert = false
     @Published  var alertMessage = ""
+    @Published  var canProceed = false
     
     override init(){            //
         super.init()
@@ -21,33 +22,16 @@ class LocationManger:NSObject , ObservableObject {
         
     }
     
-    func checkLocationPermission() {
+    func requestPermission() {
         
         if !CLLocationManager.locationServicesEnabled() {
             alertMessage = "please enable the location from the setting"
             showLocationAlert = true
             return
-        }
         
-        switch manager.authorizationStatus {
-        case .notDetermined:
-            manager.requestWhenInUseAuthorization()
-            
-        case .restricted, .denied:
-            alertMessage = " Location is denied. please enable from the settings "
-            showLocationAlert = true
-        
-        case .authorizedAlways, .authorizedWhenInUse :
-            print("location access is granted ")
-            
-        default:
-            alertMessage = "unLnown Location status"
-            showLocationAlert = true
-            
-            
-            
         
         }
+        manager.requestWhenInUseAuthorization()
     }
 }
 
@@ -55,7 +39,24 @@ class LocationManger:NSObject , ObservableObject {
 
 extension LocationManger: CLLocationManagerDelegate {
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        checkLocationPermission()
+        DispatchQueue.main.async {
+            switch manager.authorizationStatus {
+            case .notDetermined:
+                manager.requestWhenInUseAuthorization()
+                
+            case .restricted, .denied:
+                self.alertMessage = " Location is denied. please enable from the settings "
+                self.showLocationAlert = true
+                
+            case .authorizedAlways, .authorizedWhenInUse :
+                print("location access is granted ")
+                self.canProceed = true
+                
+            default:
+                self.alertMessage = "unLnown Location status"
+                self.showLocationAlert = true
+            }
+        }
     }
     
 }
