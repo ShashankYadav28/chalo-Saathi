@@ -62,7 +62,7 @@ struct SignUP: View {
                     .shadow(radius: 5)
                     
                     
-                    VStack(spacing: 15) {
+                    VStack(spacing: 18) {
                         
                  
                             TextField("Full Name", text: $signUpViewModel.name)
@@ -134,7 +134,7 @@ struct SignUP: View {
                     .background(.white)
                     .cornerRadius(20)
                     .shadow(color: .black.opacity(0.1),radius:10,x:0,y:5)
-                    .offset(y: 170)
+                    .offset(y: 190)
                     
                     
                 
