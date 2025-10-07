@@ -10,7 +10,7 @@ import CoreLocation
 
 class LocationManger:NSObject , ObservableObject {
     
-    private var manager = CLLocationManager()
+     var manager = CLLocationManager()
     
     @Published  var showLocationAlert = false
     @Published  var alertMessage = ""
@@ -38,7 +38,7 @@ class LocationManger:NSObject , ObservableObject {
 
 
 extension LocationManger: CLLocationManagerDelegate {
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {   // it is called when the status is chanmge
         DispatchQueue.main.async {
             switch manager.authorizationStatus {
             case .notDetermined:

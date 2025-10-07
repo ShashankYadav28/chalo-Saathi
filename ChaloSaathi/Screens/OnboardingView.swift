@@ -11,7 +11,7 @@ import CoreLocation
 struct OnboardingView: View {
     @State private var currentPage = 0
    // @State private var showLocationAlert = false
-    @StateObject private var showLocationManager = LocationManger()
+    @StateObject  var showLocationManager = LocationManger()
     @State private var goToSignIn = false
     
 
@@ -41,12 +41,9 @@ struct OnboardingView: View {
                             
                             HStack {
                                 ForEach(0..<slidesImage.count, id:\.self) { dotIndex in
-                                    Circle()
-                                        .fill(dotIndex == currentPage ? Color.blue : Color.gray.opacity(0.5))
                                     
-                                        .frame( width: dotIndex == currentPage ? 10 : 8 , height: dotIndex == currentPage ? 10 : 8)
-                                        .scaleEffect(dotIndex == currentPage ? 1.2 : 1)
-                                        .animation(.easeInOut, value:currentPage)
+                                    DotView(dotIndex: dotIndex, currentPage: self.currentPage)
+                                    
                                     
                                     
                                 }
@@ -78,7 +75,19 @@ struct OnboardingView: View {
                         goToSignIn = true
                     }
                     else{
-                        showLocationManager.requestPermission()
+                             let status = showLocationManager.manager.authorizationStatus
+                            switch status {
+                            case .authorizedAlways, .authorizedWhenInUse:
+                                showLocationManager.canProceed = true
+                            case .denied, .restricted:
+                                showLocationManager.alertMessage = "Location access denied. Please enable it in Settings."
+                                showLocationManager.showLocationAlert = true
+                            case .notDetermined:
+                                showLocationManager.requestPermission()
+                            @unknown default:
+                                showLocationManager.alertMessage = "Unknown location status."
+                                showLocationManager.showLocationAlert = true
+                            }
                     }
                     
                 } label: {
@@ -138,6 +147,23 @@ struct Textlayout:View {
                 .padding(.horizontal,30)
             
         }
+        
+    }
+}
+
+
+struct DotView : View {
+    var dotIndex:Int
+    var currentPage:Int
+    
+    
+    var body: some View {
+        Circle()
+            .fill(dotIndex == currentPage ? Color.blue : Color.gray.opacity(0.5))
+        
+            .frame( width: dotIndex == currentPage ? 10 : 8 , height: dotIndex == currentPage ? 10 : 8)
+            .scaleEffect(dotIndex == currentPage ? 1.2 : 1)
+            .animation(.easeInOut, value:currentPage)
         
     }
 }

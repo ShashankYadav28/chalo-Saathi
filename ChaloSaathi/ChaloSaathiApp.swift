@@ -13,6 +13,7 @@ struct ChaloSaathiApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     @State private var isactive = true
+    @StateObject private var signInVm = SignInViewModel()
     var body: some Scene {
         WindowGroup {
             
@@ -20,7 +21,12 @@ struct ChaloSaathiApp: App {
                 SplashScreen(splashShow:$isactive)
             }
             else {
-                OnboardingView()
+                if signInVm.isSigned {
+                    HomeView()
+                }
+                else {
+                    OnboardingView()
+                }
             }
         }
     }
