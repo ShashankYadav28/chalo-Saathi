@@ -11,6 +11,7 @@
 		DD4DE64C2E8E7CCA0042F005 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DD4DE64B2E8E7CCA0042F005 /* FirebaseAuth */; };
 		DD4DE64E2E8E7CD60042F005 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DD4DE64D2E8E7CD60042F005 /* FirebaseCore */; };
 		DD4DE6502E8E7CE60042F005 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = DD4DE64F2E8E7CE60042F005 /* FirebaseStorage */; };
+		DDAFC0C12E966145009AAEFC /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = DDAFC0C02E966145009AAEFC /* FirebaseFirestoreCombine-Community */; };
 		DDEC1A472E9025F1005335F2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = DDEC1A462E9025F1005335F2 /* FirebaseFirestore */; };
 /* End PBXBuildFile section */
 
@@ -76,6 +77,7 @@
 				DD4DE64A2E8E7CC30042F005 /* FirebaseMessaging in Frameworks */,
 				DD4DE6502E8E7CE60042F005 /* FirebaseStorage in Frameworks */,
 				DD4DE64E2E8E7CD60042F005 /* FirebaseCore in Frameworks */,
+				DDAFC0C12E966145009AAEFC /* FirebaseFirestoreCombine-Community in Frameworks */,
 				DDEC1A472E9025F1005335F2 /* FirebaseFirestore in Frameworks */,
 				DD4DE64C2E8E7CCA0042F005 /* FirebaseAuth in Frameworks */,
 			);
@@ -104,6 +106,7 @@
 				DD4DE59D2E8BEBEC0042F005 /* ChaloSaathi */,
 				DD4DE5AB2E8BEBEE0042F005 /* ChaloSaathiTests */,
 				DD4DE5B52E8BEBEE0042F005 /* ChaloSaathiUITests */,
+				DDAFC0BF2E966145009AAEFC /* Frameworks */,
 				DD4DE59C2E8BEBEC0042F005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -116,6 +119,13 @@
 				DD4DE5B22E8BEBEE0042F005 /* ChaloSaathiUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DDAFC0BF2E966145009AAEFC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -143,6 +153,7 @@
 				DD4DE64D2E8E7CD60042F005 /* FirebaseCore */,
 				DD4DE64F2E8E7CE60042F005 /* FirebaseStorage */,
 				DDEC1A462E9025F1005335F2 /* FirebaseFirestore */,
+				DDAFC0C02E966145009AAEFC /* FirebaseFirestoreCombine-Community */,
 			);
 			productName = ChaloSaathi;
 			productReference = DD4DE59B2E8BEBEC0042F005 /* ChaloSaathi.app */;
@@ -628,6 +639,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DD4DE6472E8E7C010042F005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		DDAFC0C02E966145009AAEFC /* FirebaseFirestoreCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DD4DE6472E8E7C010042F005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseFirestoreCombine-Community";
 		};
 		DDEC1A462E9025F1005335F2 /* FirebaseFirestore */ = {
 			isa = XCSwiftPackageProductDependency;
