@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import CoreLocation
+import CoreLocation  // it is the framework that give access to the current position and geographic data like current latitude and longitude
 
 class LocationManger:NSObject , ObservableObject {
     
@@ -16,9 +16,9 @@ class LocationManger:NSObject , ObservableObject {
     @Published  var alertMessage = ""
     @Published  var canProceed = false
     
-    override init(){            //
+    override init(){
         super.init()
-            manager.delegate = self
+            manager.delegate = self // it is setting my current class the the listener for the manager object 
         
     }
     

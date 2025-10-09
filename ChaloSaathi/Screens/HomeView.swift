@@ -8,8 +8,23 @@
 import SwiftUI
 
 struct HomeView: View {
+    @StateObject var vm = SignInViewModel()
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        
+        Button {
+            vm.signOut()
+            
+        }
+        label:{
+            Text("signOut ")
+                .foregroundColor(.white)
+                //.padding()
+                .frame(maxWidth:.infinity)
+                .frame(height:100)
+                .background(Color.blue)
+            
+                
+        }
     }
 }
 
