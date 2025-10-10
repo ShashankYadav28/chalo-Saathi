@@ -9,7 +9,7 @@ import Foundation
 import CoreLocation
 import MapKit
 
-class LocationManagerRideSearch: NSObject , ObservableObject, CLLocationManagerDelegate {
+class LocationManagerRideSearch: NSObject , ObservableObject {
     
     let locationManager = CLLocationManager()
     
@@ -20,7 +20,7 @@ class LocationManagerRideSearch: NSObject , ObservableObject, CLLocationManagerD
     
     override init() {
         super.init()
-        locationManager.delegate = self
+        locationManager.delegate = self  // location manger delegate is used as it recieves the data about the changes , when tell these changes to this object that is CClocationMangerDelegate
         locationManager.desiredAccuracy = kCLLocationAccuracyBest  // it tell which accuracy i want better accuracy mean more battery drain
         locationManager.requestWhenInUseAuthorization()
         locationManager.startUpdatingLocation()
@@ -107,5 +107,36 @@ class LocationManagerRideSearch: NSObject , ObservableObject, CLLocationManagerD
 }
 
 
-extens
+extension LocationManagerRideSearch: CLLocationManagerDelegate {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        
+        guard let location = locations.last else {
+            return
+            
+        }
+        
+        DispatchQueue.main.async{
+            self.location = location.coordinate
+        }
+        
+        getAddress(from: location.coordinate) { address in
+            DispatchQueue.main.async {
+                self.currentAddress = address
+            }
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: any Error) {
+        print("Location Error  \(error.localizedDescription)")
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        self.authorizationStatus  = manager.authorizationStatus
+        
+       /* switch manager.authorizationStatus {
+      //  case .authorized,.authorizedAlways
+          //  locationManager
+        }*/
+    }
+}
 
