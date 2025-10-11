@@ -133,10 +133,22 @@ extension LocationManagerRideSearch: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         self.authorizationStatus  = manager.authorizationStatus
         
-       /* switch manager.authorizationStatus {
-      //  case .authorized,.authorizedAlways
-          //  locationManager
-        }*/
+        switch manager.authorizationStatus {
+        case .authorized,.authorizedAlways:
+            locationManager.startUpdatingLocation()
+            
+        case.denied,.restricted:
+            print("location can  not be accessed ")
+            
+        case .notDetermined :
+            locationManager.requestWhenInUseAuthorization()
+        @unknown default :
+            print(" Not able to detetermined the location ")
+        }
     }
+    
+    
 }
+        
+        
 
