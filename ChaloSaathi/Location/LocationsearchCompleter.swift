@@ -16,12 +16,14 @@ class LocationsearchCompleter: NSObject,ObservableObject{
     
     @Published var searchQuery = "" {
         didSet {
+            print("🟡 searchQuery changed to: \(searchQuery)")
             if searchQuery.isEmpty {
                 searchresult = []
                 
             }
             else {
                 completer.queryFragment = searchQuery  // search query , it is containg text that has been entered , complete query.fragement is used for the searching the text
+                print("🔵 completer.queryFragment set to: \(completer.queryFragment)")
             }
         }
         
@@ -64,6 +66,7 @@ class LocationsearchCompleter: NSObject,ObservableObject{
 
 extension LocationsearchCompleter:MKLocalSearchCompleterDelegate {
     func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        print("✅ completerDidUpdateResults called with \(completer.results.count) results")
         DispatchQueue.main.async {
             self.searchresult = completer.results
         }

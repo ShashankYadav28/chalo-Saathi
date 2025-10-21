@@ -9,7 +9,7 @@ import SwiftUI
 
 struct HomeScreen:View {
     
-    @StateObject private var locationManger = LocationManger()
+    @StateObject private var locationManger = LocationManagerRideSearch()
     @State private var selectedTab: Tab = .search
     
     @State private var showProfile  = false
@@ -29,11 +29,10 @@ struct HomeScreen:View {
                 
                 ScrollView {
                     if selectedTab == .search {
+                        SearchRideView(locationManager: locationManger, currentUser: currentUser)
                         
                     }
-                    else {
-                        
-                    }
+                    
                     
                 }
                 //.background(Color(UIColor.systemGroupedBackground))
@@ -111,6 +110,7 @@ struct HomeScreen:View {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.2),radius: 10)
+        .padding()
     }
     
     private var bottomNavigation: some View {
@@ -121,6 +121,9 @@ struct HomeScreen:View {
             BottomNavItem(icon: "person", title: "Profile", isSelected: false)
             
         }
+        .padding(.vertical,12)
+        .background(Color.white)
+        .shadow(color:.black.opacity(0.1),radius: 10 , y: -5)
     }
     
 }

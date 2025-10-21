@@ -22,7 +22,7 @@ struct ChaloSaathiApp: App {
             }
             else {
                 if signInVm.isSigned {
-                    HomeView()
+                    HomeScreen()
                 }
                 else {
                     OnboardingView()

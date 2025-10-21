@@ -14,7 +14,7 @@ class LocationManagerRideSearch: NSObject , ObservableObject {
     let locationManager = CLLocationManager()
     
     @Published var location : CLLocationCoordinate2D?
-    @Published var currentAddress: String  = "Current Address "
+    @Published var currentAddress: String  = "Current Location "
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     
     
@@ -32,23 +32,26 @@ class LocationManagerRideSearch: NSObject , ObservableObject {
         locationManager.requestLocation()
     }
     
-    func getAddress(from location: CLLocationCoordinate2D, completion: (String) -> Void ){
+    func getAddress(from location: CLLocationCoordinate2D, completion: @escaping(String) -> Void ){
         let geoCoder = CLGeocoder()
         let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
         
         geoCoder.reverseGeocodeLocation(loc) { placemark, error in
             if let error = error {
                 print("reverse Geocoding Error \(error.localizedDescription)")
+                completion("Unknown completion")
                 return
                 
             }
             
             if let placemark = placemark?.first {
                 
-                
+                let address = self.formatAddress(from: placemark)
+                completion(address)
             }
             else {
                 print("unknown location ")
+                completion("unknown string ")
             }
         }
     }
@@ -134,7 +137,7 @@ extension LocationManagerRideSearch: CLLocationManagerDelegate {
         self.authorizationStatus  = manager.authorizationStatus
         
         switch manager.authorizationStatus {
-        case .authorized,.authorizedAlways:
+        case .authorizedWhenInUse,.authorizedAlways:
             locationManager.startUpdatingLocation()
             
         case.denied,.restricted:
