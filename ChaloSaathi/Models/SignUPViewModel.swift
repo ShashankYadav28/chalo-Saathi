@@ -68,7 +68,6 @@ class SignUPViewModel: ObservableObject {
                 do {
                     try Firestore.firestore().collection("users").document(uid).setData(from: newUser)
                     self.signedUpSuccess = true
-                   
                     self.alertMessage = "SignedUPSuccessfully"
                     self.showAlert = true 
                     //self.signedUpSuccess = true

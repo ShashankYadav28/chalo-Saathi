@@ -15,8 +15,6 @@ struct SignUpFormView: View {
     
     var body: some View {
         VStack(spacing: 18) {
-            
-            
             TextField("Full Name", text: $vm.name)
                 .padding()
                 .background(Color(.systemGray6))
@@ -58,7 +56,6 @@ struct SignUpFormView: View {
                 .cornerRadius(8)
                 .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.gray, lineWidth: 0.5))
             
-            
             Button {
                 vm.signUpUser()
             } label:  {
@@ -82,9 +79,7 @@ struct SignUpFormView: View {
         .alert("SignUpstatus", isPresented: $vm.showAlert) {
             Button("ok"){
                 if vm.signedUpSuccess {
-                    
-                    onSignUPSuccess?()
-                    
+                        onSignUPSuccess?()
                 }
             }
             

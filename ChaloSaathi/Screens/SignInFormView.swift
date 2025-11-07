@@ -104,8 +104,17 @@ struct SignInFormView: View {
                 }
             }
         }
-        .navigationDestination(isPresented: $vm.isSigned) {
-            HomeView()
+        .fullScreenCover(isPresented: $vm.isSigned) {
+            HomeScreen()
+        }
+        .alert(isPresented: .constant(vm.errorMessage != nil)) {
+            Alert(
+                title: Text("Error"),
+                message: Text(vm.errorMessage ?? "Unknown error"),
+                dismissButton: .default(Text("OK")) {
+                    vm.errorMessage = nil
+                }
+            )
         }
     }
 }

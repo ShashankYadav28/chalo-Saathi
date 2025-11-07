@@ -9,7 +9,7 @@ import SwiftUI
 
 struct HomeScreen:View {
     
-    @StateObject private var locationManger = LocationManagerRideSearch()
+    @StateObject private var locationManager = LocationManagerRideSearch()
     @State private var selectedTab: Tab = .search
     
     @State private var showProfile  = false
@@ -21,15 +21,46 @@ struct HomeScreen:View {
     }
     var body: some View {
         
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0){
                 HeaderView
                 
                 tabswitcher
                 
-                ScrollView {
-                    if selectedTab == .search {
-                        SearchRideView(locationManager: locationManger, currentUser: currentUser)
+                Group {
+                    switch selectedTab {
+                    case .search:
+                        SearchRideView(
+                            locationManager: locationManager,
+                            currentUser: AppUser(
+                                id: "1",
+                                name: "Test User",
+                                email: "test@test.com",
+                                phone: "9999999999",
+                                gender: "male",
+                                vehicleType: "car",
+                                profilePicture: "",
+                                fcmToken: "",
+                                createdAt: Date()
+                            )
+                        )
+                        .transition(.opacity)
+                    case .publish:
+                        PublishRideView(
+                               locationManager: locationManager,
+                               currentUser: AppUser(
+                                   id: "1",
+                                   name: "Test User",
+                                   email: "test@test.com",
+                                   phone: "9999999999",
+                                   gender: "male",
+                                   vehicleType: "car",
+                                   profilePicture: "",
+                                   fcmToken: "",
+                                   createdAt: Date()
+                               )
+                           )
+                           .transition(.opacity)
                         
                     }
                     
@@ -38,11 +69,9 @@ struct HomeScreen:View {
                 //.background(Color(UIColor.systemGroupedBackground))
                 
                 bottomNavigation
-                
-                
-            
-                
             }
+            .navigationBarBackButtonHidden(true)
+            .navigationBarHidden(true)
         }
         
     }
@@ -92,6 +121,9 @@ struct HomeScreen:View {
             }
             
         }
+        .sheet(isPresented: $showProfile, content: {
+            ProfileView(showProfile: $showProfile)
+        })
         .padding()
         .background(Color.white).shadow(color: .black.opacity(0.3), radius: 5,y: 2)
         
