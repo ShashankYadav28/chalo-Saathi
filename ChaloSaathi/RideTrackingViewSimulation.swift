@@ -1,7 +1,7 @@
 import SwiftUI
 import MapKit
 
-struct RideTrackingView: View {
+struct RideTrackingViewSimulation: View {
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
     
@@ -149,7 +149,7 @@ struct RideTrackingView: View {
     }
 }
 #Preview {
-    RideTrackingView(
+    RideTrackingViewSimulation(
         fromCoordinate: CLLocationCoordinate2D(latitude: 12.9716, longitude: 77.5946),
         toCoordinate: CLLocationCoordinate2D(latitude: 12.9352, longitude: 77.6245)
     )

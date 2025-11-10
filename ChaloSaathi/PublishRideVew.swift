@@ -1,10 +1,3 @@
-//
-//  PublishRideVew.swift
-//  ChaloSaathi
-//
-//  Created by Shashank Yadav on 26/10/25.
-//
-
 import SwiftUI
 import MapKit
 import FirebaseFirestore
@@ -15,20 +8,23 @@ struct PublishRideView: View {
 
     @State private var fromAddress: String = ""
     @State private var toAddress: String = ""
-    @State private var selectedDate = Date()
-    @State private var selectedTime = Date()
+    @State private var selectedDateTime = Date()
     @State private var availableSeats = 1
     @State private var vehicleType: VehicleType = .car
     @State private var farePerKm: String = ""
     @State private var genderPreference: GenderPreference = .all
-    @State private var showingDestinationSearch = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isPublishing = false
     
-    // Coordinates
+    @State private var showDriverTracking = false
+    @State private var publishedRide: Ride?
+    
     @State private var fromCoordinate: CLLocationCoordinate2D?
     @State private var toCoordinate: CLLocationCoordinate2D?
+    
+    @StateObject private var locationSearchCompleter = LocationsearchCompleter()
+    @State private var showDestinationSuggestions = false
     
     enum VehicleType: String, CaseIterable {
         case car = "Car"
@@ -56,97 +52,198 @@ struct PublishRideView: View {
         }
     }
     
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // From Location
-                    locationField(
-                        title: "From",
-                        address: locationManager.currentAddress.isEmpty ? "Fetching location..." : locationManager.currentAddress,
-                        icon: "mappin.circle.fill",
-                        color: .red
-                    )
-                    
-                    // To Location (manual entry for now)
-                    VStack(alignment: .leading) {
-                        Text("To")
-                            .font(.headline)
-                        TextField("Enter destination (e.g., Chennai)", text: $toAddress)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                    }
-                    .padding(.horizontal)
-                    
-                    // Date & Time
-                    HStack(spacing: 16) {
-                        DatePicker("Date", selection: $selectedDate, displayedComponents: .date)
-                        DatePicker("Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
-                    }
-                    .padding(.horizontal)
-                    
-                    // Seats
-                    Stepper("Available Seats: \(availableSeats)", value: $availableSeats, in: 1...4)
-                        .padding(.horizontal)
-                    
-                    // Fare
-                    TextField("Fare per km (₹)", text: $farePerKm)
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.horizontal)
-                    
-                    // Vehicle Type Picker
-                    Picker("Vehicle Type", selection: $vehicleType) {
-                        ForEach(VehicleType.allCases, id: \.self) {
-                            Text($0.rawValue)
-                        }
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .padding(.horizontal)
-                    
-                    // Gender Preference Picker
-                    Picker("Gender Preference", selection: $genderPreference) {
-                        ForEach(GenderPreference.allCases, id: \.self) {
-                            Text($0.rawValue)
-                        }
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .padding(.horizontal)
-                    
-                    Button(action: publishRide) {
-                        HStack {
-                            if isPublishing {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "paperplane.fill")
-                            }
-                            Text("Publish Ride")
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .cornerRadius(10)
-                    }
-                    .padding()
-                    .disabled(isPublishing)
-                }
-            }
-            .navigationTitle("Publish Ride")
-            .alert("Status", isPresented: $showingAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(alertMessage)
-            }
-            .onAppear {
-                // Simulate from location
-                fromCoordinate = CLLocationCoordinate2D(latitude: 12.9716, longitude: 77.5946) // Bangalore
-                fromAddress = "Bangalore"
-            }
+    var isFormValid: Bool {
+        !fromAddress.isEmpty &&
+        !toAddress.isEmpty &&
+        !farePerKm.isEmpty &&
+        fromCoordinate != nil &&
+        toCoordinate != nil
+    }
+    
+    var displayFromAddress: String {
+        if !fromAddress.isEmpty {
+            return fromAddress
+        } else if !locationManager.currentAddress.isEmpty {
+            return locationManager.currentAddress
+        } else {
+            return "Fetching location..."
         }
     }
     
-    // MARK: - Helper Views
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        locationField(
+                            title: "From",
+                            address: displayFromAddress,
+                            icon: "mappin.circle.fill",
+                            color: .red
+                        )
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("To")
+                                .font(.headline)
+                                .padding(.horizontal)
+                            
+                            TextField("Enter destination (e.g., Chennai)", text: $locationSearchCompleter.searchQuery)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .padding(.horizontal)
+                                .onChange(of: locationSearchCompleter.searchQuery) { newValue in
+                                    showDestinationSuggestions = !newValue.isEmpty
+                                }
+                        }
+                        
+                        VStack(alignment: .leading) {
+                            Text("Date & Time")
+                                .font(.headline)
+                            DatePicker("Select departure", selection: $selectedDateTime, displayedComponents: [.date, .hourAndMinute])
+                                .datePickerStyle(.compact)
+                        }
+                        .padding(.horizontal)
+                        
+                        Stepper("Available Seats: \(availableSeats)", value: $availableSeats, in: 1...4)
+                            .padding(.horizontal)
+                        
+                        VStack(alignment: .leading) {
+                            Text("Fare per km")
+                                .font(.headline)
+                            TextField("Enter fare (₹)", text: $farePerKm)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                        .padding(.horizontal)
+                        
+                        VStack(alignment: .leading) {
+                            Text("Vehicle Type")
+                                .font(.headline)
+                            Picker("Vehicle Type", selection: $vehicleType) {
+                                ForEach(VehicleType.allCases, id: \.self) {
+                                    Text($0.rawValue)
+                                }
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                        }
+                        .padding(.horizontal)
+                        
+                        VStack(alignment: .leading) {
+                            Text("Gender Preference")
+                                .font(.headline)
+                            Picker("Gender Preference", selection: $genderPreference) {
+                                ForEach(GenderPreference.allCases, id: \.self) {
+                                    Text($0.rawValue)
+                                }
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                        }
+                        .padding(.horizontal)
+                        
+                        Button(action: publishRide) {
+                            HStack {
+                                if isPublishing {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "paperplane.fill")
+                                }
+                                Text("Publish Ride")
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(isFormValid ? Color.blue : Color.gray)
+                            .cornerRadius(10)
+                        }
+                        .padding()
+                        .disabled(isPublishing || !isFormValid)
+                        
+                        if !isFormValid {
+                            Text("Please fill all fields and select destinations")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .padding(.horizontal)
+                        }
+                    }
+                    .padding(.bottom, 100)
+                }
+                
+                if showDestinationSuggestions && !locationSearchCompleter.searchresult.isEmpty {
+                    VStack {
+                        Spacer()
+                            .frame(height: 160)
+                        
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                ForEach(Array(locationSearchCompleter.searchresult.enumerated()), id: \.offset) { index, result in
+                                    Button {
+                                        selectDestination(result)
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(result.title)
+                                                .font(.system(size: 16, weight: .medium))
+                                                .foregroundColor(.primary)
+                                            Text(result.subtitle)
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                    }
+                                    
+                                    if index != locationSearchCompleter.searchresult.count - 1 {
+                                        Divider()
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 250)
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                        .padding(.horizontal, 20)
+                        
+                        Spacer()
+                    }
+                }
+            }
+            .navigationTitle("Publish Ride")
+            .navigationDestination(isPresented: $showDriverTracking) {
+                if let ride = publishedRide {
+                    DriverTrackingView(ride: ride, currentUser: currentUser)
+                }
+            }
+            .alert(alertMessage, isPresented: $showingAlert) {
+                Button("OK", role: .cancel) { }
+            }
+            .onAppear {
+                if fromAddress.isEmpty {
+                    fromCoordinate = locationManager.location
+                    fromAddress = locationManager.currentAddress
+                    
+                    print("📍 Initial location set in onAppear:")
+                    print("   Address: '\(fromAddress)'")
+                    print("   Coordinates: \(fromCoordinate?.latitude ?? 0), \(fromCoordinate?.longitude ?? 0)")
+                }
+            }
+            .onChange(of: locationManager.currentAddress) { newAddress in
+                if fromAddress.isEmpty && !newAddress.isEmpty {
+                    fromAddress = newAddress
+                    fromCoordinate = locationManager.location
+                    
+                    print("📍 Location updated via onChange:")
+                    print("   Address: '\(fromAddress)'")
+                    print("   Coordinates: \(fromCoordinate?.latitude ?? 0), \(fromCoordinate?.longitude ?? 0)")
+                }
+            }
+            .onTapGesture {
+                showDestinationSuggestions = false
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
+    }
     
     func locationField(title: String, address: String, icon: String, color: Color) -> some View {
         HStack {
@@ -168,7 +265,22 @@ struct PublishRideView: View {
         .padding(.horizontal)
     }
     
-    // MARK: - Firestore Publish Logic
+    func selectDestination(_ completion: MKLocalSearchCompletion) {
+        locationSearchCompleter.getCoordinate(for: completion) { coordinate, address in
+            if let coordinate = coordinate, let address = address {
+                toAddress = address
+                toCoordinate = coordinate
+                locationSearchCompleter.searchQuery = address
+                showDestinationSuggestions = false
+                
+                print("📍 Destination selected:")
+                print("   Address: '\(address)'")
+                print("   Coordinates: \(coordinate.latitude), \(coordinate.longitude)")
+                
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
+    }
     
     func publishRide() {
         guard let currentUser = currentUser else {
@@ -177,48 +289,107 @@ struct PublishRideView: View {
             return
         }
         
+        if fromAddress.isEmpty && !locationManager.currentAddress.isEmpty {
+            fromAddress = locationManager.currentAddress
+            fromCoordinate = locationManager.location
+        }
+        
+        guard let fromCoord = fromCoordinate, let toCoord = toCoordinate else {
+            alertMessage = "Please wait for location to load or select valid locations."
+            showingAlert = true
+            return
+        }
+        
+        guard !fromAddress.isEmpty else {
+            alertMessage = "Please wait for location to load."
+            showingAlert = true
+            return
+        }
+        
+        guard !farePerKm.isEmpty, Double(farePerKm) != nil else {
+            alertMessage = "Please enter a valid fare amount."
+            showingAlert = true
+            return
+        }
+        
         isPublishing = true
         
-        // Assign manual coordinates for test
-        fromCoordinate = CLLocationCoordinate2D(latitude: 12.9716, longitude: 77.5946) // Bangalore
-        toCoordinate = CLLocationCoordinate2D(latitude: 13.0827, longitude: 80.2707) // Chennai
+        print("🚀 Publishing ride:")
+        print("   From: '\(fromAddress)' (\(fromCoord.latitude), \(fromCoord.longitude))")
+        print("   To: '\(toAddress)' (\(toCoord.latitude), \(toCoord.longitude))")
+        print("   Date: \(selectedDateTime)")
         
         let rideData: [String: Any] = [
-            "from": fromAddress,
-            "to": toAddress,
-            "fromLat": fromCoordinate?.latitude ?? 0.0,
-            "fromLong": fromCoordinate?.longitude ?? 0.0,
-            "toLat": toCoordinate?.latitude ?? 0.0,
-            "toLong": toCoordinate?.longitude ?? 0.0,
-            "date": Timestamp(date: selectedDate),
-            "time": Timestamp(date: selectedTime),
+            "fromAddress": fromAddress.trimmingCharacters(in: .whitespacesAndNewlines),
+            "toAddress": toAddress.trimmingCharacters(in: .whitespacesAndNewlines),
+            "fromLat": fromCoord.latitude,
+            "fromLong": fromCoord.longitude,
+            "toLat": toCoord.latitude,
+            "toLong": toCoord.longitude,
+            "date": Timestamp(date: selectedDateTime),
             "availableSeats": availableSeats,
             "farePerKm": farePerKm,
             "vehicleType": vehicleType.rawValue,
             "genderPreference": genderPreference.firestoreValue,
             "driverId": currentUser.id,
             "driverName": currentUser.name,
-            "driverGender": currentUser.gender
+            "driverGender": currentUser.gender,
+            "createdAt": Timestamp(date: Date())
         ]
         
         Firestore.firestore().collection("rides").addDocument(data: rideData) { error in
-            isPublishing = false
+            self.isPublishing = false
+            
             if let error = error {
-                alertMessage = "Failed to publish ride: \(error.localizedDescription)"
+                self.alertMessage = "Failed to publish ride: \(error.localizedDescription)"
+                self.showingAlert = true
+                print("❌ Publish failed: \(error.localizedDescription)")
             } else {
-                alertMessage = "Ride successfully published!"
-                toAddress = ""
-                farePerKm = ""
+                print("✅ Ride published successfully!")
+                
+                // Create Ride object and navigate to tracking
+                let newRide = Ride(
+                    id: nil,
+                    driverId: currentUser.id ?? "101",
+                    driverName: currentUser.name,
+                    driverGender: currentUser.gender,
+                    fromAddress: fromAddress,
+                    fromLat: fromCoord.latitude,
+                    fromLong: fromCoord.longitude,
+                    toAddress: toAddress,
+                    toLat: toCoord.latitude,
+                    toLong: toCoord.longitude,
+                    date: selectedDateTime,
+                    availableSeats: availableSeats,
+                    vehicleType: vehicleType.rawValue,
+                    farePerKm: farePerKm,
+                    genderPreference: genderPreference.firestoreValue,
+                    createdAt: Date()
+                )
+                
+                self.publishedRide = newRide
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.showDriverTracking = true
+                }
             }
-            showingAlert = true
         }
     }
 }
 
 #Preview {
-    PublishRideView(locationManager: LocationManagerRideSearch(),
-                    currentUser: AppUser(id: "1", name: "Shashank", email: "test@test.com",
-                                         phone: "9999999999", gender: "male", vehicleType: "car",
-                                         profilePicture: "", fcmToken: "", createdAt: Date()))
+    PublishRideView(
+        locationManager: LocationManagerRideSearch(),
+        currentUser: AppUser(
+            id: "1",
+            name: "Shashank",
+            email: "test@test.com",
+            phone: "9999999999",
+            gender: "male",
+            vehicleType: "car",
+            profilePicture: "",
+            fcmToken: "",
+            createdAt: Date()
+        )
+    )
 }
-

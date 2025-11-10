@@ -9,14 +9,17 @@ struct SearchRideView: View {
     
     @State private var fromAddress: String = ""
     @State private var toAddress: String = ""
-    @State private var selectedDate = Date()
-    @State private var selectedTime = Date()
+    @State private var selectedDateTime = Date()
+    @State private var searchAnyDate = false
     
     @State private var fromCoordinate: CLLocationCoordinate2D?
     @State private var toCoordinate: CLLocationCoordinate2D?
     
     @StateObject private var locationSearchCompleter = LocationsearchCompleter()
     @State private var showRideTrackingView = false
+    @State private var showNoRideAlert = false
+    @State private var foundRide: Ride?
+
     
     var body: some View {
         NavigationStack {
@@ -36,13 +39,11 @@ struct SearchRideView: View {
                                 .foregroundColor(.primary)
                                 .fixedSize()
                               
-                            TextField("Enter the Location",text: $fromAddress)
+                            TextField("Enter the Location", text: $fromAddress)
                                 .font(.system(size: 16, weight: .regular))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 12)
@@ -67,12 +68,10 @@ struct SearchRideView: View {
                                 .foregroundColor(.primary)
                                 .fixedSize()
                             
-                            TextField("Search Destinationn", text: $locationSearchCompleter.searchQuery)
+                            TextField("Search Destination", text: $locationSearchCompleter.searchQuery)
                                 .font(.system(size: 16))
                                 .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity)
-                            
-                            
                         }
                         .padding(.vertical, 12)
                         .padding(.horizontal)
@@ -82,8 +81,6 @@ struct SearchRideView: View {
                                 .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                         )
                         .padding(.horizontal, 20)
-                        
-                        
                         
                         // Time and Find Ride buttons section
                         VStack(alignment: .leading, spacing: 0) {
@@ -98,54 +95,30 @@ struct SearchRideView: View {
                                 
                                 Spacer()
                                 
-                                DatePicker("", selection: $selectedTime, displayedComponents: [.date, .hourAndMinute])
+                                DatePicker("", selection: $selectedDateTime, displayedComponents: [.date, .hourAndMinute])
                                     .labelsHidden()
+                                    .disabled(searchAnyDate)
+                                    .opacity(searchAnyDate ? 0.5 : 1.0)
                             }
                             .padding(.vertical, 12)
                             .padding(.horizontal)
                             
+                            Toggle("Search rides on any date", isOn: $searchAnyDate)
+                                .padding(.horizontal)
+                                .padding(.bottom, 8)
+                            
                             Button(action: {
-                                
-                                // 🚀 TEST ONLY: Bypass search & use fixed coordinates
-                                   /*fromCoordinate = CLLocationCoordinate2D(latitude: 12.9716, longitude: 77.5946) // Bangalore
-                                   toCoordinate = CLLocationCoordinate2D(latitude: 12.9352, longitude: 77.6245)   // */
-                                
-                                
-                                 
-                                guard let gender = currentUser?.gender else {
-                                    print("cuurent User not found ")
-                                    return
-                                }
-                                
-                                    viewModel.searchRides(
-                                        
-                                        from: fromAddress.isEmpty ? locationManager.currentAddress : fromAddress,
-                                        to: locationSearchCompleter.searchQuery.isEmpty ? toAddress:locationSearchCompleter.searchQuery,
-                                        date: selectedDate,
-                                        currentUserGender: gender
-                                        
-                                    )
-                                DispatchQueue.main.asyncAfter(deadline:.now()+2) {locationSearchCompleter.searchQuery = ""
-                                    if let ride = viewModel.rides.first {
-                                        //selectedRide = firstRide
-                                        print("✅ Ride found, navigating to RideTrackingView")
-                                        let toLat = Double(ride.toLat)
-                                        let toLong = Double(ride.toLong)
-                                        
-                                        fromCoordinate = CLLocationCoordinate2D(latitude: 12.9716, longitude: 77.5946) // Bangalore
-                                        toCoordinate = CLLocationCoordinate2D(latitude: 13.0827, longitude: 80.2707)
-                                        showRideTrackingView = true
-                                    }
-                                    else {
-                                        print(" Ride Not Found")
-                                        
-                                    }
-                                }
+                                performSearch()
                             }) {
                                 HStack {
-                                    Image(systemName: "magnifyingglass")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(.white)
+                                    if viewModel.isLoading {
+                                        ProgressView()
+                                            .tint(.white)
+                                    } else {
+                                        Image(systemName: "magnifyingglass")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(.white)
+                                    }
                                     Text("Find Rides")
                                         .font(.system(size: 22, weight: .bold))
                                         .foregroundColor(.white)
@@ -165,19 +138,8 @@ struct SearchRideView: View {
                             }
                             .padding(.horizontal)
                             .padding(.top, 8)
-                            .disabled(toAddress.isEmpty)
-                            .opacity(toAddress.isEmpty ? 0.6 : 1.0)
-                            
-                       
-                            
-                            
-                            HStack(spacing: 12) {
-                                QuickActionButton(icon: "star", title: "Saved Routes")
-                                QuickActionButton(icon: "shield.checkered", title: "Safety Routes")
-                                QuickActionButton(icon: "dollarsign.circle", title: "Earnings")
-                            }
-                            .padding(.horizontal)
-                            .padding(.vertical, 12)
+                            .disabled(viewModel.isLoading || fromAddress.isEmpty || (locationSearchCompleter.searchQuery.isEmpty && toAddress.isEmpty))
+                            .opacity((viewModel.isLoading || fromAddress.isEmpty || (locationSearchCompleter.searchQuery.isEmpty && toAddress.isEmpty)) ? 0.6 : 1.0)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
@@ -186,16 +148,33 @@ struct SearchRideView: View {
                                 .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 4)
                         )
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
                         
+                        // Quick Stats Card
+                        VStack(spacing: 16) {
+                            Text("Recent Activity")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            
+                            HStack(spacing: 16) {
+                                StatCard(icon: "car.fill", title: "Rides", value: "0", color: .blue)
+                                StatCard(icon: "star.fill", title: "Rating", value: "5.0", color: .orange)
+                                StatCard(icon: "indianrupeesign.circle.fill", title: "Saved", value: "₹0", color: .green)
+                            }
+                        }
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
                     }
                 }
                 
-                // ✅ Suggestions overlay (true floating layer)
+                // Suggestions overlay
                 if !locationSearchCompleter.searchresult.isEmpty {
                     VStack {
                         Spacer()
-                            .frame(height: 110) // align right below TO field
+                            .frame(height: 110)
                         
                         ScrollView {
                             VStack(spacing: 0) {
@@ -227,31 +206,95 @@ struct SearchRideView: View {
                         .cornerRadius(12)
                         .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
                         .padding(.horizontal, 20)
-                        .zIndex(1) // ensures it's on top
+                        .zIndex(1)
                         
                         Spacer()
                     }
                     .animation(.easeInOut(duration: 0.2), value: locationSearchCompleter.searchresult.count)
                 }
             }
+            .navigationTitle("Find a Ride")
+            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showRideTrackingView) {
-                if let fromCoord = fromCoordinate, let toCoord = toCoordinate {
-                    RideTrackingView(fromCoordinate: fromCoord, toCoordinate: toCoord)
+                if let ride = foundRide {
+                    PassengerTrackingView(
+                        ride: ride,
+                        currentUser: currentUser
+                    )
                 } else {
-                    EmptyView()
+                    Text("Invalid ride data")
                 }
             }
-
             .onAppear {
                 fromCoordinate = locationManager.location
                 fromAddress = locationManager.currentAddress
+                print("📍 SearchRideView appeared")
+                print("   From: '\(fromAddress)'")
+                print("   Coordinates: \(fromCoordinate?.latitude ?? 0), \(fromCoordinate?.longitude ?? 0)")
             }
             .onTapGesture {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
+            .alert("No Rides Found", isPresented: $showNoRideAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("No rides were found for your selected route and date. Try adjusting your destination or time, or enable 'Search rides on any date'.")
+            }
         }
-       
     }
+    
+    private func performSearch() {
+        guard let gender = currentUser?.gender else {
+            print("❌ Current user not found")
+            return
+        }
+        
+        let searchFrom = fromAddress.isEmpty ? locationManager.currentAddress : fromAddress
+        let searchTo = locationSearchCompleter.searchQuery.isEmpty ? toAddress : locationSearchCompleter.searchQuery
+        
+        print("🔍 Searching: '\(searchFrom)' → '\(searchTo)'")
+        print("📅 Date filter: \(searchAnyDate ? "ANY DATE" : selectedDateTime.description)")
+        print("👤 User gender: \(gender)")
+        
+        viewModel.searchRides(
+            from: searchFrom,
+            to: searchTo,
+            date: searchAnyDate ? Date.distantPast : selectedDateTime,
+            currentUserGender: gender
+        ) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let ride):
+                    print("✅ Ride found: \(ride.fromAddress) → \(ride.toAddress)")
+
+                    fromCoordinate = CLLocationCoordinate2D(
+                        latitude: ride.fromLat,
+                        longitude: ride.fromLong
+                    )
+                    toCoordinate = CLLocationCoordinate2D(
+                        latitude: ride.toLat,
+                        longitude: ride.toLong
+                    )
+
+                    foundRide = ride
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        print("🚀 Opening PassengerTrackingView")
+                        showRideTrackingView = true
+                    }
+
+                case .noResults:
+                    print("❌ No rides found.")
+                    showNoRideAlert = true
+
+                case .failure(let message):
+                    print("❌ Search failed: \(message)")
+                    showNoRideAlert = true
+                }
+            }
+        }
+    }
+    
     func selectLocation(_ completion: MKLocalSearchCompletion) {
         locationSearchCompleter.getCoordinate(for: completion) { coordinate, address in
             if let coordinate = coordinate, let address = address {
@@ -262,35 +305,35 @@ struct SearchRideView: View {
                 locationSearchCompleter.searchresult.removeAll()
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
-            
         }
     }
-
-
 }
 
-
-struct QuickActionButton: View {
+struct StatCard: View {
     let icon: String
     let title: String
+    let value: String
+    let color: Color
     
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 24))
-                .foregroundColor(.gray)
+                .foregroundColor(color)
+            
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.primary)
             
             Text(title)
-                .font(.system(size: 12))
+                .font(.caption)
                 .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color.gray.opacity(0.05))
+        .padding()
+        .background(color.opacity(0.1))
         .cornerRadius(12)
     }
-    
 }
 
 #Preview {
