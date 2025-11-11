@@ -1,98 +1,147 @@
-//
-//  SignUpFormView.swift
-//  ChaloSaathi
-//
-//  Created by Shashank Yadav on 06/10/25.
-//
-
 import SwiftUI
 
 struct SignUpFormView: View {
-    @StateObject var vm  = SignUPViewModel()
-    
+    @ObservedObject var vm: SignUPViewModel
     var onSignUPSuccess: (() -> Void)?
-    
     
     var body: some View {
         VStack(spacing: 18) {
+            // Full Name
             TextField("Full Name", text: $vm.name)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.gray, lineWidth: 0.5))
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
             
+            // Email
+            TextField("Email", text: $vm.email)
+                .keyboardType(.emailAddress)
+                .autocapitalization(.none)
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
             
-            TextField("Email",text: $vm.email)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.gray, lineWidth: 0.5))
+            // Phone Number
+            TextField("Phone Number", text: $vm.phone)
+                .keyboardType(.phonePad)
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
             
+            // Password
+            SecureField("Password", text: $vm.password)
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
             
-            SecureField("Password",text: $vm.password)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.gray, lineWidth: 0.5))
+            // Gender Picker
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Gender")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
+                
+                Menu {
+                    Button("Male") { vm.gender = "male" }
+                    Button("Female") { vm.gender = "female" }
+                    Button("Other") { vm.gender = "other" }
+                } label: {
+                    HStack {
+                        Text(vm.gender.isEmpty ? "Select Gender" : vm.gender.capitalized)
+                            .foregroundColor(vm.gender.isEmpty ? .secondary : .primary)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    }
+                    .padding(16)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                }
+            }
             
+            // Vehicle Type Picker
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Vehicle Type (Optional)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
+                
+                Menu {
+                    Button("None") { vm.vehicleType = "" }
+                    Button("Car") { vm.vehicleType = "car" }
+                    Button("Bike") { vm.vehicleType = "bike" }
+                    Button("Auto") { vm.vehicleType = "auto" }
+                } label: {
+                    HStack {
+                        Text(vm.vehicleType.isEmpty ? "Select Vehicle Type (Optional)" : vm.vehicleType.capitalized)
+                            .foregroundColor(vm.vehicleType.isEmpty ? .secondary : .primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    }
+                    .padding(16)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                }
+            }
             
-            TextField("Gender (Male/Female/Other",text: $vm.gender)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.gray, lineWidth: 0.5))
+            // Aadhaar Number
+            TextField("Aadhaar Number (Optional)", text: $vm.aadhaar)
+                .keyboardType(.numberPad)
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.2), lineWidth: 1))
             
-            
-            TextField("Vehicle Type (car/Bike/None",text: $vm.vehicleType)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.gray, lineWidth: 0.5))
-            
-            
-            TextField("Aadhaar Number", text: $vm.aadhaar)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius:8).stroke(Color.gray, lineWidth: 0.5))
-            
+            // Sign Up Button
             Button {
                 vm.signUpUser()
-            } label:  {
+            } label: {
                 if vm.isLoading {
                     ProgressView()
+                        .tint(.white)
                         .frame(maxWidth: .infinity)
-                }
-                else{
+                        .frame(height: 54)
+                } else {
                     Text("Sign Up")
                         .foregroundColor(.white)
-                        .padding()
+                        .font(.headline)
                         .frame(maxWidth: .infinity)
-                    //.padding()
-                        .background(Color.blue)
-                        .cornerRadius(8)
-                    
+                        .frame(height: 54)
+                        .background(
+                            LinearGradient(
+                                colors: [.blue, .blue.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(12)
                 }
             }
-            .shadow(color:.blue.opacity(0.3),radius: 10,x:0,y:5)
+            .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
+            .disabled(vm.isLoading)
         }
-        .alert("SignUpstatus", isPresented: $vm.showAlert) {
-            Button("ok"){
+        .alert("SignUp Status", isPresented: $vm.showAlert) {
+            Button("OK") {
                 if vm.signedUpSuccess {
-                        onSignUPSuccess?()
+                    onSignUPSuccess?()
                 }
             }
-            
-            
         } message: {
             Text(vm.alertMessage)
         }
-        
     }
 }
 
-
-
 #Preview {
-    SignUpFormView()
+    SignUpFormView(vm: SignUPViewModel())
 }

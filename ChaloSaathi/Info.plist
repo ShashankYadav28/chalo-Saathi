@@ -17,5 +17,11 @@
 	<array>
 		<dict/>
 	</array>
+	<key>CFBundleIdentifier</key>
+	<string>&lt;key&gt;NSLocationWhenInUseUsageDescription&lt;/key&gt;
+&lt;string&gt;This app requires location access to track your ride.&lt;/string&gt;
+&lt;key&gt;NSLocationAlwaysAndWhenInUseUsageDescription&lt;/key&gt;
+&lt;string&gt;This app requires location access to track your ride.&lt;/string&gt;
+</string>
 </dict>
 </plist>

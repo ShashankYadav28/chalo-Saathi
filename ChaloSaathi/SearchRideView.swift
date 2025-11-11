@@ -3,9 +3,9 @@ import MapKit
 
 struct SearchRideView: View {
     
-    @StateObject var locationManager: LocationManagerRideSearch
+    @ObservedObject var locationManager: LocationManagerRideSearch
     @StateObject var viewModel = SearchRideViewModel()
-    let currentUser: AppUser?
+    let currentUser: AppUser
     
     @State private var fromAddress: String = ""
     @State private var toAddress: String = ""
@@ -22,245 +22,236 @@ struct SearchRideView: View {
 
     
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .top) {
-                ScrollView {
-                    VStack(spacing: 16) {
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(spacing: 16) {
+                    
+                    // FROM section
+                    HStack(spacing: 12) {
+                        Image(systemName: "mappin.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(.red)
+                            .frame(width: 20)
                         
-                        // FROM section
-                        HStack(spacing: 12) {
-                            Image(systemName: "mappin.circle")
+                        Text("FROM:")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundColor(.primary)
+                            .fixedSize()
+                          
+                        TextField("Enter the Location", text: $fromAddress)
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    
+                    // TO section
+                    HStack(spacing: 12) {
+                        Image(systemName: "flag")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                            .frame(width: 20)
+                        
+                        Text("TO:")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundColor(.primary)
+                            .fixedSize()
+                        
+                        TextField("Search Destination", text: $locationSearchCompleter.searchQuery)
+                            .font(.system(size: 16))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    )
+                    .padding(.horizontal, 20)
+                    
+                    // Time and Find Ride buttons section
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Image(systemName: "clock")
                                 .font(.system(size: 20))
-                                .foregroundColor(.red)
-                                .frame(width: 20)
+                                .foregroundColor(.primary)
                             
-                            Text("FROM:")
+                            Text("TIME:")
                                 .font(.system(size: 16, weight: .regular))
                                 .foregroundColor(.primary)
-                                .fixedSize()
-                              
-                            TextField("Enter the Location", text: $fromAddress)
-                                .font(.system(size: 16, weight: .regular))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            
+                            Spacer()
+                            
+                            DatePicker("", selection: $selectedDateTime, displayedComponents: [.date, .hourAndMinute])
+                                .labelsHidden()
+                                .disabled(searchAnyDate)
+                                .opacity(searchAnyDate ? 0.5 : 1.0)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 12)
                         .padding(.horizontal)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white)
-                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-                        )
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
                         
-                        // TO section
-                        HStack(spacing: 12) {
-                            Image(systemName: "flag")
-                                .font(.system(size: 20))
-                                .foregroundColor(.blue)
-                                .frame(width: 20)
-                            
-                            Text("TO:")
-                                .font(.system(size: 16, weight: .regular))
-                                .foregroundColor(.primary)
-                                .fixedSize()
-                            
-                            TextField("Search Destination", text: $locationSearchCompleter.searchQuery)
-                                .font(.system(size: 16))
-                                .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white)
-                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-                        )
-                        .padding(.horizontal, 20)
-                        
-                        // Time and Find Ride buttons section
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.primary)
-                                
-                                Text("TIME:")
-                                    .font(.system(size: 16, weight: .regular))
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                DatePicker("", selection: $selectedDateTime, displayedComponents: [.date, .hourAndMinute])
-                                    .labelsHidden()
-                                    .disabled(searchAnyDate)
-                                    .opacity(searchAnyDate ? 0.5 : 1.0)
-                            }
-                            .padding(.vertical, 12)
+                        Toggle("Search rides on any date", isOn: $searchAnyDate)
                             .padding(.horizontal)
-                            
-                            Toggle("Search rides on any date", isOn: $searchAnyDate)
-                                .padding(.horizontal)
-                                .padding(.bottom, 8)
-                            
-                            Button(action: {
-                                performSearch()
-                            }) {
-                                HStack {
-                                    if viewModel.isLoading {
-                                        ProgressView()
-                                            .tint(.white)
-                                    } else {
-                                        Image(systemName: "magnifyingglass")
-                                            .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(.white)
-                                    }
-                                    Text("Find Rides")
-                                        .font(.system(size: 22, weight: .bold))
+                            .padding(.bottom, 8)
+                        
+                        Button(action: {
+                            performSearch()
+                        }) {
+                            HStack {
+                                if viewModel.isLoading {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.system(size: 18, weight: .bold))
                                         .foregroundColor(.white)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(LinearGradient(
-                                            colors: [Color.blue, Color.blue.opacity(0.8)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        ))
-                                )
-                                .foregroundColor(.white)
-                                .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
+                                Text("Find Rides")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(.white)
                             }
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-                            .disabled(viewModel.isLoading || fromAddress.isEmpty || (locationSearchCompleter.searchQuery.isEmpty && toAddress.isEmpty))
-                            .opacity((viewModel.isLoading || fromAddress.isEmpty || (locationSearchCompleter.searchQuery.isEmpty && toAddress.isEmpty)) ? 0.6 : 1.0)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(LinearGradient(
+                                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ))
+                            )
+                            .foregroundColor(.white)
+                            .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white)
-                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 4)
-                        )
-                        .padding(.horizontal, 20)
-                        
-                        // Quick Stats Card
-                        VStack(spacing: 16) {
-                            Text("Recent Activity")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            HStack(spacing: 16) {
-                                StatCard(icon: "car.fill", title: "Rides", value: "0", color: .blue)
-                                StatCard(icon: "star.fill", title: "Rating", value: "5.0", color: .orange)
-                                StatCard(icon: "indianrupeesign.circle.fill", title: "Saved", value: "₹0", color: .green)
-                            }
-                        }
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(12)
-                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        .disabled(viewModel.isLoading || fromAddress.isEmpty || (locationSearchCompleter.searchQuery.isEmpty && toAddress.isEmpty))
+                        .opacity((viewModel.isLoading || fromAddress.isEmpty || (locationSearchCompleter.searchQuery.isEmpty && toAddress.isEmpty)) ? 0.6 : 1.0)
                     }
-                }
-                
-                // Suggestions overlay
-                if !locationSearchCompleter.searchresult.isEmpty {
-                    VStack {
-                        Spacer()
-                            .frame(height: 110)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 4)
+                    )
+                    .padding(.horizontal, 20)
+                    
+                    // Quick Stats Card
+                    VStack(spacing: 16) {
+                        Text("Recent Activity")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         
-                        ScrollView {
-                            VStack(spacing: 0) {
-                                ForEach(Array(locationSearchCompleter.searchresult.enumerated()), id: \.offset) { index, result in
-                                    Button {
-                                        selectLocation(result)
-                                    } label: {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(result.title)
-                                                .font(.system(size: 16, weight: .medium))
-                                                .foregroundColor(.primary)
-                                            Text(result.subtitle)
-                                                .font(.system(size: 14))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
+                        HStack(spacing: 16) {
+                            StatCard(icon: "car.fill", title: "Rides", value: "0", color: .blue)
+                            StatCard(icon: "star.fill", title: "Rating", value: "5.0", color: .orange)
+                            StatCard(icon: "indianrupeesign.circle.fill", title: "Saved", value: "₹0", color: .green)
+                        }
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
+            }
+            
+            // Suggestions overlay
+            if !locationSearchCompleter.searchresult.isEmpty {
+                VStack {
+                    Spacer()
+                        .frame(height: 110)
+                    
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(Array(locationSearchCompleter.searchresult.enumerated()), id: \.offset) { index, result in
+                                Button {
+                                    selectLocation(result)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(result.title)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.primary)
+                                        Text(result.subtitle)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.secondary)
                                     }
-                                    
-                                    if index != locationSearchCompleter.searchresult.count - 1 {
-                                        Divider()
-                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                }
+                                
+                                if index != locationSearchCompleter.searchresult.count - 1 {
+                                    Divider()
                                 }
                             }
                         }
-                        .frame(maxHeight: 250)
-                        .background(Color.white)
-                        .cornerRadius(12)
-                        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-                        .padding(.horizontal, 20)
-                        .zIndex(1)
-                        
-                        Spacer()
                     }
-                    .animation(.easeInOut(duration: 0.2), value: locationSearchCompleter.searchresult.count)
+                    .frame(maxHeight: 250)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                    .padding(.horizontal, 20)
+                    .zIndex(1)
+                    
+                    Spacer()
                 }
+                .animation(.easeInOut(duration: 0.2), value: locationSearchCompleter.searchresult.count)
             }
-            .navigationTitle("Find a Ride")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(isPresented: $showRideTrackingView) {
-                if let ride = foundRide {
-                    PassengerTrackingView(
-                        ride: ride,
-                        currentUser: currentUser
-                    )
-                } else {
-                    Text("Invalid ride data")
-                }
+        }
+        .navigationDestination(isPresented: $showRideTrackingView) {
+            if let ride = foundRide {
+                PassengerTrackingView(
+                    ride: ride,
+                    currentUser: currentUser
+                )
+            } else {
+                Text("Invalid ride data")
             }
-            .onAppear {
-                fromCoordinate = locationManager.location
-                fromAddress = locationManager.currentAddress
-                print("📍 SearchRideView appeared")
-                print("   From: '\(fromAddress)'")
-                print("   Coordinates: \(fromCoordinate?.latitude ?? 0), \(fromCoordinate?.longitude ?? 0)")
-            }
-            .onTapGesture {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
-            .alert("No Rides Found", isPresented: $showNoRideAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("No rides were found for your selected route and date. Try adjusting your destination or time, or enable 'Search rides on any date'.")
-            }
+        }
+        .onAppear {
+            fromCoordinate = locationManager.location
+            fromAddress = locationManager.currentAddress
+            print("📍 SearchRideView appeared")
+            print("   From: '\(fromAddress)'")
+            print("   Coordinates: \(fromCoordinate?.latitude ?? 0), \(fromCoordinate?.longitude ?? 0)")
+        }
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+        .alert("No Rides Found", isPresented: $showNoRideAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("No rides were found for your selected route and date. Try adjusting your destination or time, or enable 'Search rides on any date'.")
         }
     }
     
     private func performSearch() {
-        guard let gender = currentUser?.gender else {
-            print("❌ Current user not found")
-            return
-        }
-        
         let searchFrom = fromAddress.isEmpty ? locationManager.currentAddress : fromAddress
         let searchTo = locationSearchCompleter.searchQuery.isEmpty ? toAddress : locationSearchCompleter.searchQuery
         
         print("🔍 Searching: '\(searchFrom)' → '\(searchTo)'")
         print("📅 Date filter: \(searchAnyDate ? "ANY DATE" : selectedDateTime.description)")
-        print("👤 User gender: \(gender)")
+        print("👤 User gender: \(currentUser.gender)")
         
         viewModel.searchRides(
             from: searchFrom,
             to: searchTo,
             date: searchAnyDate ? Date.distantPast : selectedDateTime,
-            currentUserGender: gender
+            currentUserGender: currentUser.gender
         ) { result in
             DispatchQueue.main.async {
                 switch result {
