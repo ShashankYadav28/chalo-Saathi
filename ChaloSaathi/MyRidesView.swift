@@ -1,5 +1,6 @@
 import SwiftUI
-import FirebaseFirestore
+import FirebaseFirestore       // For Firestore
+import FirebaseAuth           // ✅ For Auth.auth().currentUser?.uid
 
 // MARK: - Comprehensive My Rides View
 struct MyRidesView: View {
@@ -23,7 +24,10 @@ struct MyRidesView: View {
                                 .font(.title2)
                                 .fontWeight(.bold)
                             
-                            Text(selectedTab == .asPassenger ? "\(viewModel.passengerBookings.count) bookings" : "\(viewModel.driverRides.count) rides")
+                            // 🔁 show total counts (no filtering)
+                            Text(selectedTab == .asPassenger ?
+                                 "\(viewModel.passengerBookings.count) bookings" :
+                                 "\(viewModel.driverRides.count) rides")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -48,9 +52,13 @@ struct MyRidesView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
                                     .background(
-                                        selectedTab == tab ?
-                                        LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .leading, endPoint: .trailing) :
-                                        LinearGradient(colors: [.gray.opacity(0.1), .gray.opacity(0.1)], startPoint: .leading, endPoint: .trailing)
+                                        selectedTab == tab
+                                        ? LinearGradient(colors: [.blue, .blue.opacity(0.8)],
+                                                         startPoint: .leading,
+                                                         endPoint: .trailing)
+                                        : LinearGradient(colors: [.gray.opacity(0.1), .gray.opacity(0.1)],
+                                                         startPoint: .leading,
+                                                         endPoint: .trailing)
                                     )
                                     .cornerRadius(10)
                             }
@@ -81,7 +89,17 @@ struct MyRidesView: View {
                 }
             }
             .task {
-                await viewModel.fetchAllRides(userId: currentUser.id ?? "")
+                // ✅ Prefer Firebase Auth UID; fallback to currentUser.id
+                let authId = Auth.auth().currentUser?.uid ?? ""
+                let modelId = currentUser.id ?? ""
+                let uid = authId.isEmpty ? modelId : authId
+                
+                if uid.isEmpty {
+                    print("⚠️ MyRidesView: both Auth.uid and currentUser.id are empty, skipping fetchAllRides")
+                } else {
+                    print("🔍 MyRidesView using userId: \(uid)")
+                    await viewModel.fetchAllRides(userId: uid)
+                }
             }
         }
     }
@@ -200,15 +218,23 @@ struct PassengerBookingCard: View {
                 
                 Spacer()
                 
-                Text(booking.date ?? Date(), style: .date)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                if let date = booking.date {
+                    Text(date, style: .date)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Date pending")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             // Driver Info
             HStack(spacing: 12) {
                 Circle()
-                    .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .fill(LinearGradient(colors: [.blue, .purple],
+                                         startPoint: .topLeading,
+                                         endPoint: .bottomTrailing))
                     .frame(width: 44, height: 44)
                     .overlay(
                         Text(booking.driverName.prefix(1).uppercased())
@@ -358,6 +384,11 @@ struct DriverRideCard: View {
     @State private var showTrackingView = false
     @State private var bookingCount = 0
     
+    // ✅ We trust Firestore's `status` field
+    private var isCompleted: Bool {
+        ride.status == "completed"
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
@@ -427,21 +458,30 @@ struct DriverRideCard: View {
                 }
             }
             
-            // Action Button
-            Button(action: { showTrackingView = true }) {
+            // ✅ Action Button changes with status
+            Button(action: {
+                if !isCompleted {
+                    showTrackingView = true
+                }
+            }) {
                 HStack {
-                    Image(systemName: "location.fill")
-                    Text("Start Ride")
+                    Image(systemName: isCompleted ? "checkmark.circle.fill" : "location.fill")
+                    Text(isCompleted ? "Completed" : "Start Ride")
                 }
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
-                    LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .leading, endPoint: .trailing)
+                    LinearGradient(
+                        colors: isCompleted ? [.gray, .gray.opacity(0.7)] : [.blue, .blue.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
                 )
                 .cornerRadius(10)
             }
+            .disabled(isCompleted)   // ✅ can't tap after completed
         }
         .padding(16)
         .background(Color.white)
@@ -562,3 +602,4 @@ class MyRidesViewModel: ObservableObject {
         createdAt: Date()
     ))
 }
+

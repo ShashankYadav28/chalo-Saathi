@@ -234,7 +234,9 @@ struct SearchRideView: View {
                     GeometryReader { proxy in
                         let rect = proxy[anchor]
                         suggestionCard(for: .from, completions: fromLocationSearchCompleter.searchresult, anchorRect: rect)
-                            .position(x: rect.midX, y: computeCardY(for: rect, proxy: proxy, completions: fromLocationSearchCompleter.searchresult))
+                            // center horizontally across the screen so it's wide
+                            .position(x: UIScreen.main.bounds.width / 2,
+                                      y: computeCardY(for: rect, proxy: proxy, completions: fromLocationSearchCompleter.searchresult))
                     }
                     .coordinateSpace(name: "root")
                 } else {
@@ -249,7 +251,8 @@ struct SearchRideView: View {
                     GeometryReader { proxy in
                         let rect = proxy[anchor]
                         suggestionCard(for: .to, completions: toLocationSearchCompleter.searchresult, anchorRect: rect)
-                            .position(x: rect.midX, y: computeCardY(for: rect, proxy: proxy, completions: toLocationSearchCompleter.searchresult))
+                            .position(x: UIScreen.main.bounds.width / 2,
+                                      y: computeCardY(for: rect, proxy: proxy, completions: toLocationSearchCompleter.searchresult))
                     }
                     .coordinateSpace(name: "root")
                 } else {
@@ -267,15 +270,17 @@ struct SearchRideView: View {
         }
     } // body
     
-    // MARK: - Suggestion card builder
+    // MARK: - Suggestion card builder (updated to be wider)
     private func suggestionCard(for field: SearchField, completions: [MKLocalSearchCompletion], anchorRect: CGRect) -> some View {
         let rowHeight: CGFloat = 52
         let count = min(completions.prefix(5).count, 5)
         let totalHeight = CGFloat(count) * rowHeight
         let sidePadding: CGFloat = 20
+
+        // Use a wider card: full available screen width minus side padding
         let screen = UIScreen.main.bounds
-        let cardWidth = min(anchorRect.width, screen.width - (sidePadding * 2))
-        
+        let cardWidth = screen.width - (sidePadding * 2)
+
         return VStack(spacing: 0) {
             ForEach(Array(completions.prefix(5).enumerated()), id: \.offset) { index, result in
                 Button {
@@ -310,6 +315,7 @@ struct SearchRideView: View {
     }
     
     // compute card center y (will put above if not enough room below)
+    // small verticalOffset pushes the card a little lower when shown below the field
     private func computeCardY(for rect: CGRect, proxy: GeometryProxy, completions: [MKLocalSearchCompletion]) -> CGFloat {
         let screen = UIScreen.main.bounds
         let rowHeight: CGFloat = 52
@@ -317,14 +323,20 @@ struct SearchRideView: View {
         let suggestedHeight = CGFloat(count) * rowHeight
         let safeAreaBottom = proxy.safeAreaInsets.bottom
         let availableBelow = screen.height - rect.maxY - keyboard.keyboardHeight - safeAreaBottom
+
+        // tweak this value to move the suggestions more/less
+        let verticalOffset: CGFloat = 9
+
         let placeAbove = availableBelow < (suggestedHeight + 12) && (rect.minY > (suggestedHeight + 12))
         if placeAbove {
-            return rect.minY - (suggestedHeight / 2) - 6
+            // move slightly further up when placing above
+            return rect.minY - (suggestedHeight / 2) - 6 - verticalOffset
         } else {
-            return rect.maxY + (suggestedHeight / 2) + 6
+            // move slightly down when placing below
+            return rect.maxY + (suggestedHeight / 2) + 6 + verticalOffset
         }
     }
-    
+
     // MARK: - Actions (outside body)
     private func dismissSuggestions() {
         activeSearchField = nil
@@ -392,4 +404,6 @@ struct StatCard: View {
         .frame(maxWidth: .infinity).padding().background(color.opacity(0.1)).cornerRadius(12)
     }
 }
-
+#Preview {
+    StatCard(icon: "person.2", title: "Followers", value: "120k", color: .blue)
+}

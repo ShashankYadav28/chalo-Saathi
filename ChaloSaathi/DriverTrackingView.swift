@@ -1,12 +1,13 @@
 import SwiftUI
 import MapKit
 import FirebaseFirestore
+import FirebaseAuth               // ✅ for Auth.auth().currentUser?.uid
 import CoreLocation
 
 // MARK: - Driver Tracking View
 struct DriverTrackingView: View {
     let ride: Ride
-    let currentUser: AppUser?
+    let currentUser: AppUser?      // can still be optional
     
     @StateObject private var viewModel = DriverTrackingViewModel()
     @State private var mapPosition: MapCameraPosition
@@ -27,6 +28,13 @@ struct DriverTrackingView: View {
                 span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
             )
         ))
+    }
+    
+    // ✅ Helper to always get a valid userId (Auth UID > model id)
+    private var resolvedUserId: String {
+        let authId = Auth.auth().currentUser?.uid ?? ""
+        let modelId = currentUser?.id ?? ""
+        return !authId.isEmpty ? authId : modelId
     }
     
     var body: some View {
@@ -87,10 +95,12 @@ struct DriverTrackingView: View {
                             viewModel.stopTracking()
                         } else {
                             print("🚗 Start Tracking tapped")
-                            if let id = currentUser?.id, !id.isEmpty {
-                                viewModel.startTracking(userId: id, ride: ride)
+                            
+                            let userId = resolvedUserId   // ✅ use helper
+                            if !userId.isEmpty {
+                                viewModel.startTracking(userId: userId, ride: ride)
                             } else {
-                                print("❌ Missing userId, cannot start tracking")
+                                print("❌ Missing userId, cannot start tracking (no Auth UID and no currentUser.id)")
                             }
                         }
                     } label: {
@@ -275,11 +285,16 @@ struct DriverTrackingView: View {
         }
         .task {
             await getRoute()
-            if let id = currentUser?.id, !id.isEmpty {
-                viewModel.startTracking(userId: id, ride: ride)
-                if let rideId = ride.id, !rideId.isEmpty {
-                    viewModel.listenForBookings(rideId: rideId)
-                }
+            
+            let userId = resolvedUserId        // ✅ same logic here
+            if !userId.isEmpty {
+                viewModel.startTracking(userId: userId, ride: ride)
+            } else {
+                print("❌ DriverTrackingView .task: no userId available, not starting tracking")
+            }
+            
+            if let rideId = ride.id, !rideId.isEmpty {
+                viewModel.listenForBookings(rideId: rideId)
             }
         }
         .onDisappear {
