@@ -1,5 +1,7 @@
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
+import UIKit   // ✅ For UIApplication
 
 // MARK: - My Bookings View
 struct MyBookingsView: View {
@@ -108,10 +110,20 @@ struct MyBookingsView: View {
                                     BookingCard(
                                         booking: booking,
                                         onCancel: {
-                                            viewModel.cancelBooking(bookingId: booking.id ?? "")
+                                            // ✅ Only cancel if id exists
+                                            if let id = booking.id {
+                                                viewModel.cancelBooking(bookingId: id)
+                                            } else {
+                                                print("❌ Booking has no id, cannot cancel")
+                                            }
                                         },
                                         onTrack: {
-                                            selectedBooking = booking
+                                            // ✅ Avoid navigating if rideId is empty
+                                            if booking.rideId.isEmpty {
+                                                print("❌ Cannot track booking: empty rideId")
+                                            } else {
+                                                selectedBooking = booking
+                                            }
                                         }
                                     )
                                 }
@@ -125,7 +137,17 @@ struct MyBookingsView: View {
                 PassengerTrackingViewWrapper(booking: booking, currentUser: currentUser)
             }
             .task {
-                viewModel.fetchBookings(passengerId: currentUser.id ?? "")
+                // ✅ Use the SAME uid logic as MyRidesView
+                let authId = Auth.auth().currentUser?.uid ?? ""
+                let modelId = currentUser.id ?? ""
+                let uid = authId.isEmpty ? modelId : authId
+                
+                if uid.isEmpty {
+                    print("⚠️ MyBookingsView: both Auth.uid and currentUser.id are empty, skipping fetchBookings")
+                } else {
+                    print("🔍 MyBookingsView using passengerId: \(uid)")
+                    viewModel.fetchBookings(passengerId: uid)
+                }
             }
         }
     }
@@ -366,8 +388,9 @@ struct BookingCard: View {
                            let url = URL(string: "tel://\(phone)"),
                            UIApplication.shared.canOpenURL(url) {
                             UIApplication.shared.open(url)
+                        } else {
+                            print("❌ Cannot call, invalid number or device cannot open tel://")
                         }
-
                     }
                     
                     ActionButton(
@@ -545,7 +568,8 @@ struct PassengerTrackingViewWrapper: View {
     }
     
     private func fetchRideDetails() async {
-        // ✅ Fixed: no optional binding on non-optional String
+        print("🔍 PassengerTrackingViewWrapper – bookingId=\(booking.id ?? "nil"), rideId='\(booking.rideId)'")
+
         if booking.rideId.isEmpty {
             await MainActor.run {
                 errorMessage = "Invalid ride information"
@@ -553,13 +577,13 @@ struct PassengerTrackingViewWrapper: View {
             }
             return
         }
-        
+
         do {
             let snapshot = try await Firestore.firestore()
                 .collection("rides")
                 .document(booking.rideId)
                 .getDocument()
-            
+
             if let rideData = try? snapshot.data(as: Ride.self) {
                 await MainActor.run {
                     self.ride = rideData
@@ -571,7 +595,7 @@ struct PassengerTrackingViewWrapper: View {
                     self.errorMessage = "Ride details not found"
                     self.isLoading = false
                 }
-                print("❌ Ride not found in Firestore")
+                print("❌ Ride not found in Firestore for id \(booking.rideId)")
             }
         } catch {
             await MainActor.run {
@@ -583,7 +607,7 @@ struct PassengerTrackingViewWrapper: View {
     }
 }
 
-// MARK: - View Model
+// MARK: - ViewModel
 class BookingsViewModel: ObservableObject {
     @Published var bookings: [BookingDetails] = []
     @Published var isLoading = false
@@ -596,6 +620,7 @@ class BookingsViewModel: ObservableObject {
             return
         }
         
+        print("👀 Setting up bookings listener for passengerId:", passengerId)
         isLoading = true
         
         listener = Firestore.firestore()
@@ -611,9 +636,15 @@ class BookingsViewModel: ObservableObject {
                     return
                 }
                 
-                self.bookings = snapshot?.documents.compactMap { doc in
-                    try? doc.data(as: BookingDetails.self)
-                } ?? []
+                let docs = snapshot?.documents ?? []
+                print("📦 Bookings snapshot docs count:", docs.count)
+                
+                self.bookings = docs.compactMap { doc in
+                    print("  • booking doc id:", doc.documentID)
+                    print("    passengerId:", doc["passengerId"] ?? "nil")
+                    print("    createdAt:", doc["createdAt"] ?? "nil")
+                    return try? doc.data(as: BookingDetails.self)
+                }
                 
                 print("✅ Fetched \(self.bookings.count) bookings")
                 self.isLoading = false
@@ -626,7 +657,6 @@ class BookingsViewModel: ObservableObject {
             return
         }
         
-        // First, get the booking details to send notification
         Firestore.firestore()
             .collection("bookings")
             .document(bookingId)
@@ -644,7 +674,6 @@ class BookingsViewModel: ObservableObject {
                     return
                 }
                 
-                // Update booking status to cancelled
                 Firestore.firestore()
                     .collection("bookings")
                     .document(bookingId)
@@ -657,7 +686,6 @@ class BookingsViewModel: ObservableObject {
                         } else {
                             print("✅ Booking cancelled successfully")
                             
-                            // Send notification to driver
                             NotificationHelper.shared.notifyBookingCancelled(
                                 driverId: driverId,
                                 passengerName: passengerName,

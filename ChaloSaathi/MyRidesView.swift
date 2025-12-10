@@ -1,12 +1,19 @@
 import SwiftUI
-import FirebaseFirestore       // For Firestore
-import FirebaseAuth           // ✅ For Auth.auth().currentUser?.uid
+import FirebaseFirestore
+import FirebaseAuth
+import UIKit      // ✅ For phone call
 
 // MARK: - Comprehensive My Rides View
 struct MyRidesView: View {
     let currentUser: AppUser
     @StateObject private var viewModel = MyRidesViewModel()
     @State private var selectedTab: RideTab = .asPassenger
+    
+    // ✅ Navigation state
+    @State private var passengerTrackingBooking: BookingDetails?
+    @State private var driverTrackingRide: Ride?
+    @State private var isShowingPassengerTracking = false
+    @State private var isShowingDriverTracking = false
     
     enum RideTab: String, CaseIterable {
         case asPassenger = "As Passenger"
@@ -24,10 +31,9 @@ struct MyRidesView: View {
                                 .font(.title2)
                                 .fontWeight(.bold)
                             
-                            // 🔁 show total counts (no filtering)
-                            Text(selectedTab == .asPassenger ?
-                                 "\(viewModel.passengerBookings.count) bookings" :
-                                 "\(viewModel.driverRides.count) rides")
+                            Text(selectedTab == .asPassenger
+                                 ? "\(viewModel.passengerBookings.count) bookings"
+                                 : "\(viewModel.driverRides.count) rides")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -47,18 +53,23 @@ struct MyRidesView: View {
                                 }
                             }) {
                                 Text(tab.rawValue)
-                                    .font(.system(size: 14, weight: selectedTab == tab ? .semibold : .medium))
+                                    .font(.system(size: 14,
+                                                  weight: selectedTab == tab ? .semibold : .medium))
                                     .foregroundColor(selectedTab == tab ? .white : .primary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
                                     .background(
                                         selectedTab == tab
-                                        ? LinearGradient(colors: [.blue, .blue.opacity(0.8)],
-                                                         startPoint: .leading,
-                                                         endPoint: .trailing)
-                                        : LinearGradient(colors: [.gray.opacity(0.1), .gray.opacity(0.1)],
-                                                         startPoint: .leading,
-                                                         endPoint: .trailing)
+                                        ? LinearGradient(
+                                            colors: [.blue, .blue.opacity(0.8)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                          )
+                                        : LinearGradient(
+                                            colors: [.gray.opacity(0.1), .gray.opacity(0.1)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                          )
                                     )
                                     .cornerRadius(10)
                             }
@@ -88,8 +99,23 @@ struct MyRidesView: View {
                     }
                 }
             }
+            // ✅ Central navigation
+            .navigationDestination(isPresented: $isShowingPassengerTracking) {
+                if let booking = passengerTrackingBooking {
+                    PassengerTrackingViewWrapper(booking: booking, currentUser: currentUser)
+                } else {
+                    Text("No booking selected")
+                }
+            }
+            .navigationDestination(isPresented: $isShowingDriverTracking) {
+                if let ride = driverTrackingRide {
+                    DriverTrackingView(ride: ride, currentUser: currentUser)
+                } else {
+                    Text("No ride selected")
+                }
+            }
             .task {
-                // ✅ Prefer Firebase Auth UID; fallback to currentUser.id
+                // Prefer Auth UID, fallback to AppUser id
                 let authId = Auth.auth().currentUser?.uid ?? ""
                 let modelId = currentUser.id ?? ""
                 let uid = authId.isEmpty ? modelId : authId
@@ -115,8 +141,15 @@ struct MyRidesView: View {
                 )
             } else {
                 LazyVStack(spacing: 16) {
-                    ForEach(viewModel.passengerBookings) { booking in
-                        PassengerBookingCard(booking: booking, currentUser: currentUser)
+                    ForEach(viewModel.passengerBookings.indices, id: \.self) { index in
+                        let booking = viewModel.passengerBookings[index]
+                        PassengerBookingCard(
+                            booking: booking,
+                            currentUser: currentUser
+                        ) {
+                            passengerTrackingBooking = booking
+                            isShowingPassengerTracking = true
+                        }
                     }
                 }
                 .padding(16)
@@ -135,8 +168,17 @@ struct MyRidesView: View {
                 )
             } else {
                 LazyVStack(spacing: 16) {
-                    ForEach(viewModel.driverRides) { ride in
-                        DriverRideCard(ride: ride, currentUser: currentUser)
+                    ForEach(viewModel.driverRides.indices, id: \.self) { index in
+                        let ride = viewModel.driverRides[index]
+                        DriverRideCard(
+                            ride: ride,
+                            currentUser: currentUser
+                        ) {
+                            if ride.status != "completed" {
+                                driverTrackingRide = ride
+                                isShowingDriverTracking = true
+                            }
+                        }
                     }
                 }
                 .padding(16)
@@ -144,6 +186,7 @@ struct MyRidesView: View {
         }
     }
 }
+
 
 // MARK: - Empty State View
 struct EmptyStateView: View {
@@ -174,35 +217,48 @@ struct EmptyStateView: View {
     }
 }
 
-// MARK: - Enhanced Passenger Booking Card with Real-time Updates
+
+// MARK: - Passenger Booking Card
 struct PassengerBookingCard: View {
     let booking: BookingDetails
     let currentUser: AppUser
-    @State private var showTrackingView = false
+    let onTrackTapped: () -> Void
+    
     @State private var currentStatus: String
     @State private var showStatusAlert = false
     @State private var statusAlertMessage = ""
     @State private var bookingListener: ListenerRegistration?
     
-    init(booking: BookingDetails, currentUser: AppUser) {
+    init(booking: BookingDetails, currentUser: AppUser, onTrackTapped: @escaping () -> Void) {
         self.booking = booking
         self.currentUser = currentUser
-        self._currentStatus = State(initialValue: booking.status)
+        self.onTrackTapped = onTrackTapped
+        _currentStatus = State(initialValue: booking.status)
     }
     
-    var statusColor: Color {
+    private var statusColor: Color {
         switch currentStatus {
-        case "pending": return .orange
-        case "accepted": return .green
-        case "rejected": return .red
+        case "pending":   return .orange
+        case "accepted":  return .green
+        case "rejected":  return .red
         case "cancelled": return .gray
-        default: return .gray
+        default:          return .gray
+        }
+    }
+    
+    private var statusIcon: String {
+        switch currentStatus {
+        case "pending":   return "clock.fill"
+        case "accepted":  return "checkmark.circle.fill"
+        case "rejected":  return "xmark.circle.fill"
+        case "cancelled": return "trash.circle.fill"
+        default:          return "circle.fill"
         }
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Status Badge
+            // Status row
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: statusIcon)
@@ -229,12 +285,14 @@ struct PassengerBookingCard: View {
                 }
             }
             
-            // Driver Info
+            // Driver info
             HStack(spacing: 12) {
                 Circle()
-                    .fill(LinearGradient(colors: [.blue, .purple],
-                                         startPoint: .topLeading,
-                                         endPoint: .bottomTrailing))
+                    .fill(
+                        LinearGradient(colors: [.blue, .purple],
+                                       startPoint: .topLeading,
+                                       endPoint: .bottomTrailing)
+                    )
                     .frame(width: 44, height: 44)
                     .overlay(
                         Text(booking.driverName.prefix(1).uppercased())
@@ -278,17 +336,36 @@ struct PassengerBookingCard: View {
             
             // Actions
             if currentStatus == "accepted" {
-                Button(action: { showTrackingView = true }) {
-                    HStack {
-                        Image(systemName: "location.fill")
-                        Text("Track Ride")
+                HStack(spacing: 12) {
+                    Button {
+                        callDriver()
+                    } label: {
+                        HStack {
+                            Image(systemName: "phone.fill")
+                            Text("Call Driver")
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.green)
+                        .cornerRadius(10)
                     }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .cornerRadius(10)
+                    
+                    Button {
+                        onTrackTapped()
+                    } label: {
+                        HStack {
+                            Image(systemName: "location.fill")
+                            Text("Track Ride")
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(10)
+                    }
                 }
             } else if currentStatus == "pending" {
                 HStack(spacing: 8) {
@@ -306,27 +383,30 @@ struct PassengerBookingCard: View {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-        .navigationDestination(isPresented: $showTrackingView) {
-            PassengerTrackingViewWrapper(booking: booking, currentUser: currentUser)
-        }
         .alert(statusAlertMessage, isPresented: $showStatusAlert) {
             Button("OK", role: .cancel) { }
         }
-        .onAppear {
-            startListeningToBookingStatus()
-        }
-        .onDisappear {
-            stopListening()
-        }
+        .onAppear { startListeningToBookingStatus() }
+        .onDisappear { stopListening() }
     }
     
-    private var statusIcon: String {
-        switch currentStatus {
-        case "pending": return "clock.fill"
-        case "accepted": return "checkmark.circle.fill"
-        case "rejected": return "xmark.circle.fill"
-        case "cancelled": return "trash.circle.fill"
-        default: return "circle.fill"
+    // MARK: - Call Helper
+    private func callDriver() {
+        let phone = booking.driverPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phone.isEmpty else {
+            print("❌ callDriver: empty driverPhone")
+            return
+        }
+        
+        guard let url = URL(string: "tel://\(phone)") else {
+            print("❌ callDriver: invalid URL for \(phone)")
+            return
+        }
+        
+        if UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else {
+            print("⚠️ Device cannot open tel:// (simulator or unsupported)")
         }
     }
     
@@ -351,12 +431,10 @@ struct PassengerBookingCard: View {
                     return
                 }
                 
-                // Only update if status changed
                 if newStatus != currentStatus {
                     let oldStatus = currentStatus
                     currentStatus = newStatus
                     
-                    // Show alert for status changes
                     if oldStatus == "pending" && newStatus == "accepted" {
                         statusAlertMessage = "🎉 Your ride has been accepted! The driver will pick you up soon."
                         showStatusAlert = true
@@ -377,14 +455,15 @@ struct PassengerBookingCard: View {
     }
 }
 
+
 // MARK: - Driver Ride Card
 struct DriverRideCard: View {
     let ride: Ride
     let currentUser: AppUser
-    @State private var showTrackingView = false
+    let onStartRide: () -> Void
+    
     @State private var bookingCount = 0
     
-    // ✅ We trust Firestore's `status` field
     private var isCompleted: Bool {
         ride.status == "completed"
     }
@@ -458,10 +537,10 @@ struct DriverRideCard: View {
                 }
             }
             
-            // ✅ Action Button changes with status
+            // Start / Completed button
             Button(action: {
                 if !isCompleted {
-                    showTrackingView = true
+                    onStartRide()
                 }
             }) {
                 HStack {
@@ -474,22 +553,21 @@ struct DriverRideCard: View {
                 .padding(.vertical, 12)
                 .background(
                     LinearGradient(
-                        colors: isCompleted ? [.gray, .gray.opacity(0.7)] : [.blue, .blue.opacity(0.8)],
+                        colors: isCompleted
+                        ? [.gray, .gray.opacity(0.7)]
+                        : [.blue, .blue.opacity(0.8)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
                 .cornerRadius(10)
             }
-            .disabled(isCompleted)   // ✅ can't tap after completed
+            .disabled(isCompleted)
         }
         .padding(16)
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-        .navigationDestination(isPresented: $showTrackingView) {
-            DriverTrackingView(ride: ride, currentUser: currentUser)
-        }
         .task {
             await fetchBookingCount()
         }
@@ -514,6 +592,7 @@ struct DriverRideCard: View {
     }
 }
 
+
 // MARK: - My Rides View Model
 class MyRidesViewModel: ObservableObject {
     @Published var passengerBookings: [BookingDetails] = []
@@ -532,52 +611,76 @@ class MyRidesViewModel: ObservableObject {
         
         isLoading = true
         
-        // Fetch passenger bookings
-        fetchPassengerBookings(userId: userId)
-        
-        // Fetch driver rides
-        fetchDriverRides(userId: userId)
+        setupPassengerBookingsListener()
+        setupDriverRidesListener(driverId: userId)
         
         isLoading = false
     }
     
-    private func fetchPassengerBookings(userId: String) {
+    private func setupPassengerBookingsListener() {
+        bookingsListener?.remove()
+        
+        print("🔍 MyRidesView – listening to ALL bookings")
+        
         bookingsListener = Firestore.firestore()
             .collection("bookings")
-            .whereField("passengerId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
                 if let error = error {
                     print("❌ Error fetching bookings: \(error)")
+                    self.passengerBookings = []
                     return
                 }
                 
-                self.passengerBookings = snapshot?.documents.compactMap { doc in
-                    try? doc.data(as: BookingDetails.self)
-                } ?? []
+                let docs = snapshot?.documents ?? []
+                print("📦 ALL bookings docs:", docs.count)
                 
-                print("✅ Fetched \(self.passengerBookings.count) passenger bookings")
+                self.passengerBookings = docs.compactMap { doc in
+                    print("  • booking doc id:", doc.documentID)
+                    print("    passengerId:", doc["passengerId"] ?? "nil")
+                    print("    status:", doc["status"] ?? "nil")
+                    print("    createdAt:", doc["createdAt"] ?? "nil")
+                    return try? doc.data(as: BookingDetails.self)
+                }
+                
+                print("✅ passengerBookings count:", self.passengerBookings.count)
             }
     }
     
-    private func fetchDriverRides(userId: String) {
+    private func setupDriverRidesListener(driverId: String) {
+        guard !driverId.isEmpty else {
+            print("❌ Cannot fetch driver rides: driverId is empty")
+            return
+        }
+        
+        ridesListener?.remove()
+        
+        print("🔍 MyRidesView – listening rides for driverId:", driverId)
+        
         ridesListener = Firestore.firestore()
             .collection("rides")
-            .whereField("driverId", isEqualTo: userId)
+            .whereField("driverId", isEqualTo: driverId)
             .order(by: "createdAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
                 if let error = error {
                     print("❌ Error fetching driver rides: \(error)")
+                    self.driverRides = []
                     return
                 }
                 
-                self.driverRides = snapshot?.documents.compactMap { doc in
-                    try? doc.data(as: Ride.self)
-                } ?? []
+                let docs = snapshot?.documents ?? []
+                print("📦 driver rides docs:", docs.count)
+                
+                self.driverRides = docs.compactMap { doc in
+                    print("  • ride doc id:", doc.documentID)
+                    print("    driverId:", doc["driverId"] ?? "nil")
+                    print("    status:", doc["status"] ?? "nil")
+                    return try? doc.data(as: Ride.self)
+                }
                 
                 print("✅ Fetched \(self.driverRides.count) driver rides")
             }
@@ -589,6 +692,8 @@ class MyRidesViewModel: ObservableObject {
     }
 }
 
+
+// MARK: - Preview
 #Preview {
     MyRidesView(currentUser: AppUser(
         id: "1",
@@ -602,4 +707,3 @@ class MyRidesViewModel: ObservableObject {
         createdAt: Date()
     ))
 }
-

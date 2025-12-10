@@ -1,8 +1,10 @@
 import SwiftUI
 import MapKit
 import FirebaseFirestore
-import FirebaseAuth               // ✅ for Auth.auth().currentUser?.uid
+import FirebaseAuth
 import CoreLocation
+import UIKit    // For UIApplication / phone calls
+
 
 // MARK: - Driver Tracking View
 struct DriverTrackingView: View {
@@ -30,7 +32,7 @@ struct DriverTrackingView: View {
         ))
     }
     
-    // ✅ Helper to always get a valid userId (Auth UID > model id)
+    // Helper to always get a valid userId (Auth UID > model id)
     private var resolvedUserId: String {
         let authId = Auth.auth().currentUser?.uid ?? ""
         let modelId = currentUser?.id ?? ""
@@ -96,7 +98,7 @@ struct DriverTrackingView: View {
                         } else {
                             print("🚗 Start Tracking tapped")
                             
-                            let userId = resolvedUserId   // ✅ use helper
+                            let userId = resolvedUserId
                             if !userId.isEmpty {
                                 viewModel.startTracking(userId: userId, ride: ride)
                             } else {
@@ -198,6 +200,7 @@ struct DriverTrackingView: View {
                                 
                                 ForEach(viewModel.bookingRequests.prefix(3)) { b in
                                     HStack {
+                                        // Avatar
                                         Circle()
                                             .fill(Color.blue.opacity(0.2))
                                             .frame(width: 40, height: 40)
@@ -207,6 +210,7 @@ struct DriverTrackingView: View {
                                                     .foregroundColor(.blue)
                                             )
                                         
+                                        // Name + phone
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(b.passengerName)
                                                 .font(.system(size: 14, weight: .semibold))
@@ -214,7 +218,21 @@ struct DriverTrackingView: View {
                                                 .font(.system(size: 12))
                                                 .foregroundColor(.secondary)
                                         }
+                                        
                                         Spacer()
+                                        
+                                        // Call button
+                                        Button {
+                                            callNumber(b.passengerPhone)
+                                        } label: {
+                                            Image(systemName: "phone.fill")
+                                                .foregroundColor(.white)
+                                                .frame(width: 32, height: 32)
+                                                .background(Color.green)
+                                                .cornerRadius(16)
+                                        }
+                                        
+                                        // Reject / Accept
                                         HStack(spacing: 8) {
                                             Button {
                                                 viewModel.respondToBooking(bookingId: b.id ?? "", accept: false)
@@ -286,16 +304,17 @@ struct DriverTrackingView: View {
         .task {
             await getRoute()
             
-            let userId = resolvedUserId        // ✅ same logic here
+            let userId = resolvedUserId
             if !userId.isEmpty {
                 viewModel.startTracking(userId: userId, ride: ride)
             } else {
                 print("❌ DriverTrackingView .task: no userId available, not starting tracking")
             }
             
-            if let rideId = ride.id, !rideId.isEmpty {
-                viewModel.listenForBookings(rideId: rideId)
-            }
+            // ✅ NEW: always start listener for this driver
+            let rideId = ride.id        // may be nil
+            print("🔍 DriverTrackingView starting bookings listener – rideId=\(rideId ?? "nil"), driverId=\(ride.driverId)")
+            viewModel.listenForBookings(rideId: rideId, driverId: ride.driverId)
         }
         .onDisappear {
             viewModel.stopTracking()
@@ -327,6 +346,26 @@ struct DriverTrackingView: View {
                     .lineLimit(1)
             }
             Spacer()
+        }
+    }
+    
+    // MARK: - Call helper
+    private func callNumber(_ phone: String) {
+        let cleaned = phone.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else {
+            print("❌ callNumber: empty phone")
+            return
+        }
+        
+        guard let url = URL(string: "tel://\(cleaned)") else {
+            print("❌ callNumber: invalid url for \(cleaned)")
+            return
+        }
+        
+        if UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else {
+            print("⚠️ Device cannot open tel:// (simulator or unsupported)")
         }
     }
     
@@ -398,6 +437,7 @@ class DriverTrackingViewModel: NSObject, ObservableObject, CLLocationManagerDele
         isTracking = false
         locationManager.stopUpdatingLocation()
         bookingListener?.remove()
+        bookingListener = nil
         print("🛑 Stopped tracking driver location")
     }
     
@@ -426,24 +466,53 @@ class DriverTrackingViewModel: NSObject, ObservableObject, CLLocationManagerDele
             }
     }
     
-    func listenForBookings(rideId: String) {
-        guard !rideId.isEmpty else {
-            print("❌ Cannot listen: rideId empty")
+    // ✅ rideId is optional; if nil/empty, we show all pending bookings for this driver
+    func listenForBookings(rideId: String?, driverId: String) {
+        guard !driverId.isEmpty else {
+            print("❌ listenForBookings: driverId empty")
             return
         }
-        bookingListener = Firestore.firestore().collection("bookings")
-            .whereField("rideId", isEqualTo: rideId)
+        
+        let rideIdToFilter = rideId ?? ""
+        print("🔍 listenForBookings – driverId=\(driverId), rideId=\(rideIdToFilter.isEmpty ? "nil/empty" : rideIdToFilter)")
+        
+        bookingListener?.remove()
+        
+        bookingListener = Firestore.firestore()
+            .collection("bookings")
+            .whereField("driverId", isEqualTo: driverId)
             .whereField("status", isEqualTo: "pending")
             .addSnapshotListener { [weak self] snap, err in
                 guard let self = self else { return }
                 if let err = err {
                     print("❌ Booking listener error: \(err.localizedDescription)")
+                    self.bookingRequests = []
                     return
                 }
-                self.bookingRequests = snap?.documents.compactMap {
+                
+                let docs = snap?.documents ?? []
+                print("📋 listenForBookings – docs count for driverId=\(driverId): \(docs.count)")
+                
+                for doc in docs {
+                    let docRideId = doc["rideId"] as? String ?? "nil"
+                    let status = doc["status"] as? String ?? "nil"
+                    let passengerName = doc["passengerName"] as? String ?? "nil"
+                    print("   • booking \(doc.documentID) rideId=\(docRideId) status=\(status) passenger=\(passengerName)")
+                }
+                
+                // Filter only bookings for this rideId if available
+                let filteredDocs: [QueryDocumentSnapshot]
+                if !rideIdToFilter.isEmpty {
+                    filteredDocs = docs.filter { ($0["rideId"] as? String ?? "") == rideIdToFilter }
+                    print("✅ filtered bookings for rideId=\(rideIdToFilter): \(filteredDocs.count)")
+                } else {
+                    filteredDocs = docs
+                    print("⚠️ rideId empty – showing ALL pending bookings for this driver")
+                }
+                
+                self.bookingRequests = filteredDocs.compactMap {
                     try? $0.data(as: BookingRequest.self)
-                } ?? []
-                print("📋 Booking requests updated: \(self.bookingRequests.count)")
+                }
             }
     }
     
@@ -478,4 +547,3 @@ class DriverTrackingViewModel: NSObject, ObservableObject, CLLocationManagerDele
         stopTracking()
     }
 }
-

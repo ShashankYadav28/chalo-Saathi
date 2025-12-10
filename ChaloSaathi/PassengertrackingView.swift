@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import FirebaseFirestore
 import CoreLocation
+import FirebaseAuth   // ✅ Added
 
 struct PassengerTrackingView: View {
     let ride: Ride
@@ -403,10 +404,32 @@ struct PassengerTrackingView: View {
         }
     }
     
-    // MARK: - Updated bookRide function for PassengerTrackingView
-    // Replace the existing bookRide() function with this:
-    
+    // MARK: - UPDATED bookRide()
+    // MARK: - Updated bookRide()
     private func bookRide() {
+        // 1) Make sure we have a valid ride document id
+        guard let rideId = ride.id, !rideId.isEmpty else {
+            print("❌ bookRide: ride.id is nil/empty – cannot create booking")
+            bookingStatus = .failed("Ride reference is invalid. Please search and open this ride again.")
+            
+            // hide the error after a few seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                bookingStatus = .none
+            }
+            return
+        }
+        
+        // 2) Resolve passengerId (Auth UID > AppUser id)
+        let authId = Auth.auth().currentUser?.uid ?? ""
+        let modelId = currentUser.id ?? ""
+        let passengerId = authId.isEmpty ? modelId : authId
+        
+        guard !passengerId.isEmpty else {
+            print("❌ bookRide: passengerId is empty (no Auth uid and no currentUser.id)")
+            bookingStatus = .failed("Something went wrong with your account. Please re-login and try again.")
+            return
+        }
+        
         bookingStatus = .requesting
         
         let db = Firestore.firestore()
@@ -414,11 +437,11 @@ struct PassengerTrackingView: View {
         
         let bookingData: [String: Any] = [
             "id": bookingRef.documentID,
-            "rideId": ride.id ?? "",
+            "rideId": rideId,
             "driverId": ride.driverId,
             "driverName": ride.driverName,
-            "driverPhone": "",
-            "passengerId": currentUser.id ?? "",
+            "driverPhone": "",                       // you can fill this later
+            "passengerId": passengerId,
             "passengerName": currentUser.name,
             "passengerPhone": currentUser.phone ?? "",
             "fromAddress": ride.fromAddress,
@@ -438,14 +461,13 @@ struct PassengerTrackingView: View {
                         bookingStatus = .none
                     }
                 } else {
-                    print("✅ Booking created successfully")
+                    print("✅ Booking created successfully for rideId=\(rideId)")
                     
-                    // Send notification to driver
                     NotificationHelper.shared.notifyNewBooking(
                         driverId: ride.driverId,
                         passengerName: currentUser.name,
                         bookingId: bookingRef.documentID,
-                        rideId: ride.id ?? ""
+                        rideId: rideId
                     )
                     
                     bookingStatus = .success
@@ -454,6 +476,7 @@ struct PassengerTrackingView: View {
             }
         }
     }
+    
     // MARK: - ViewModel
     class PassengerTrackingViewModel: ObservableObject {
         @Published var driverLocation: CLLocationCoordinate2D?
@@ -462,7 +485,6 @@ struct PassengerTrackingView: View {
         private var driverLocationListener: ListenerRegistration?
         
         func startTrackingDriver(driverId: String) {
-            // Validate driverId before making Firestore call
             guard !driverId.isEmpty else {
                 print("❌ Cannot track driver: driverId is empty")
                 return
