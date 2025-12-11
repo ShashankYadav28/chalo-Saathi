@@ -406,75 +406,137 @@ struct PassengerTrackingView: View {
     
     // MARK: - UPDATED bookRide()
     // MARK: - Updated bookRide()
+    // Replace the existing bookRide() with this implementation
     private func bookRide() {
-        // 1) Make sure we have a valid ride document id
-        guard let rideId = ride.id, !rideId.isEmpty else {
-            print("❌ bookRide: ride.id is nil/empty – cannot create booking")
-            bookingStatus = .failed("Ride reference is invalid. Please search and open this ride again.")
-            
-            // hide the error after a few seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                bookingStatus = .none
+        // 1) Resolve ride document id (try using ride.id first)
+        func createBooking(withRideId rideId: String) {
+            // 2) Resolve passengerId (Auth UID > AppUser id)
+            let authId = Auth.auth().currentUser?.uid ?? ""
+            let modelId = currentUser.id ?? ""
+            let passengerId = authId.isEmpty ? modelId : authId
+
+            guard !passengerId.isEmpty else {
+                print("❌ bookRide: passengerId is empty (no Auth uid and no currentUser.id)")
+                bookingStatus = .failed("Something went wrong with your account. Please re-login and try again.")
+                return
             }
-            return
-        }
-        
-        // 2) Resolve passengerId (Auth UID > AppUser id)
-        let authId = Auth.auth().currentUser?.uid ?? ""
-        let modelId = currentUser.id ?? ""
-        let passengerId = authId.isEmpty ? modelId : authId
-        
-        guard !passengerId.isEmpty else {
-            print("❌ bookRide: passengerId is empty (no Auth uid and no currentUser.id)")
-            bookingStatus = .failed("Something went wrong with your account. Please re-login and try again.")
-            return
-        }
-        
-        bookingStatus = .requesting
-        
-        let db = Firestore.firestore()
-        let bookingRef = db.collection("bookings").document()
-        
-        let bookingData: [String: Any] = [
-            "id": bookingRef.documentID,
-            "rideId": rideId,
-            "driverId": ride.driverId,
-            "driverName": ride.driverName,
-            "driverPhone": "",                       // you can fill this later
-            "passengerId": passengerId,
-            "passengerName": currentUser.name,
-            "passengerPhone": currentUser.phone ?? "",
-            "fromAddress": ride.fromAddress,
-            "toAddress": ride.toAddress,
-            "date": Timestamp(date: ride.date),
-            "status": "pending",
-            "createdAt": Timestamp(date: Date())
-        ]
-        
-        bookingRef.setData(bookingData) { error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    print("❌ Booking failed: \(error.localizedDescription)")
-                    bookingStatus = .failed("Booking failed. Please try again.")
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        bookingStatus = .none
+
+            bookingStatus = .requesting
+
+            let db = Firestore.firestore()
+            let bookingRef = db.collection("bookings").document()
+
+            let bookingData: [String: Any] = [
+                "id": bookingRef.documentID,
+                "rideId": rideId,
+                "driverId": ride.driverId,
+                "driverName": ride.driverName,
+                "driverPhone": ride.driverPhone ?? "",
+                "passengerId": passengerId,
+                "passengerName": currentUser.name,
+                "passengerPhone": currentUser.phone ?? "",
+                "fromAddress": ride.fromAddress,
+                "toAddress": ride.toAddress,
+                "date": Timestamp(date: ride.date),
+                "status": "pending",
+                "createdAt": Timestamp(date: Date())
+            ]
+
+            bookingRef.setData(bookingData) { error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("❌ Booking failed: \(error.localizedDescription)")
+                        bookingStatus = .failed("Booking failed. Please try again.")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            bookingStatus = .none
+                        }
+                    } else {
+                        print("✅ Booking created successfully for rideId=\(rideId)")
+
+                        NotificationHelper.shared.notifyNewBooking(
+                            driverId: ride.driverId,
+                            passengerName: currentUser.name,
+                            bookingId: bookingRef.documentID,
+                            rideId: rideId
+                        )
+
+                        bookingStatus = .success
+                        showBookingConfirmation = true
                     }
-                } else {
-                    print("✅ Booking created successfully for rideId=\(rideId)")
-                    
-                    NotificationHelper.shared.notifyNewBooking(
-                        driverId: ride.driverId,
-                        passengerName: currentUser.name,
-                        bookingId: bookingRef.documentID,
-                        rideId: rideId
-                    )
-                    
-                    bookingStatus = .success
-                    showBookingConfirmation = true
                 }
             }
         }
+
+        // If we already have a ride.id, use it directly
+        if let rideId = ride.id, !rideId.isEmpty {
+            createBooking(withRideId: rideId)
+            return
+        }
+
+        // If ride.id is missing -> attempt to lookup the ride document by stable fields
+        print("⚠️ bookRide: ride.id missing, attempting lookup by fields (driverId/from/to/date)...")
+
+        let db = Firestore.firestore()
+
+        // Build a query matching driverId + coordinates + date (exact match on doubles and date day)
+        // We'll look for driverId + fromLat + fromLong + toLat + toLong and date on same day.
+        // If your stored doubles have minor differences, you can relax this in future to range checks.
+        let ridesCol = db.collection("rides")
+        ridesCol
+            .whereField("driverId", isEqualTo: ride.driverId)
+            .whereField("fromLat", isEqualTo: ride.fromLat)
+            .whereField("fromLong", isEqualTo: ride.fromLong)
+            .whereField("toLat", isEqualTo: ride.toLat)
+            .whereField("toLong", isEqualTo: ride.toLong)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("❌ Failed to lookup ride doc: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.bookingStatus = .failed("Ride reference is invalid. Please search and open this ride again.")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.bookingStatus = .none }
+                    }
+                    return
+                }
+
+                guard let docs = snapshot?.documents, !docs.isEmpty else {
+                    print("❌ No matching ride document found during lookup.")
+                    DispatchQueue.main.async {
+                        self.bookingStatus = .failed("Ride reference is invalid. Please search and open this ride again.")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.bookingStatus = .none }
+                    }
+                    return
+                }
+
+                // If multiple docs, try to match the date (same day)
+                let calendar = Calendar.current
+                var chosenDoc: DocumentSnapshot? = nil
+
+                for doc in docs {
+                    if let ts = doc.data()["date"] as? Timestamp {
+                        let docDate = ts.dateValue()
+                        if calendar.isDate(docDate, inSameDayAs: self.ride.date) {
+                            chosenDoc = doc
+                            break
+                        }
+                    }
+                }
+
+                // if none matched by date pick the first result (best effort)
+                if chosenDoc == nil {
+                    chosenDoc = docs.first
+                }
+
+                if let doc = chosenDoc {
+                    print("✅ Resolved ride doc id = \(doc.documentID) via lookup.")
+                    createBooking(withRideId: doc.documentID)
+                } else {
+                    print("❌ Lookup failed to resolve a ride document id.")
+                    DispatchQueue.main.async {
+                        self.bookingStatus = .failed("Ride reference is invalid. Please search and open this ride again.")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.bookingStatus = .none }
+                    }
+                }
+            }
     }
     
     // MARK: - ViewModel
